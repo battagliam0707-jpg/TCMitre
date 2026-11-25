@@ -1,0 +1,2004 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover" />
+  <title>Mitre ↔ Tren de la Costa (Móvil) · @mbattaglia07</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;600;700;800&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      min-height: 100dvh;
+      background-color: #060b16;
+      color: #f1f5f9;
+      font-family: 'Inter', sans-serif;
+      overflow-x: hidden;
+    }
+
+    /* Scrollbars discretos */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: #0b1324; }
+    ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 9999px; }
+
+    /* Sliders táctiles amplios para pulgar */
+    input[type="range"].touch-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      background: transparent;
+      cursor: pointer;
+      touch-action: pan-x;
+      height: 28px;
+    }
+    input[type="range"].touch-slider::-webkit-slider-runnable-track {
+      height: 7px;
+      border-radius: 9999px;
+      background: linear-gradient(90deg, #38bdf8 0%, #818cf8 50%, #10b981 100%);
+    }
+    input[type="range"].touch-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: #ffffff;
+      border: 3.5px solid #38bdf8;
+      margin-top: -7.5px;
+      box-shadow: 0 2px 10px rgba(56, 189, 248, 0.85);
+    }
+
+    input[type="range"].walk-touch-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      background: transparent;
+      cursor: pointer;
+      touch-action: pan-x;
+      height: 32px;
+    }
+    input[type="range"].walk-touch-slider::-webkit-slider-runnable-track {
+      height: 8px;
+      border-radius: 9999px;
+      background: #1e293b;
+    }
+    input[type="range"].walk-touch-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: #f59e0b;
+      border: 3px solid #fffbeb;
+      margin-top: -8px;
+      box-shadow: 0 2px 10px rgba(245, 158, 11, 0.8);
+    }
+
+    .glass-surface {
+      background: rgba(12, 19, 36, 0.94);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-color: rgba(51, 65, 85, 0.65);
+    }
+
+    /* Safe area bottom nav */
+    .bottom-nav-safe {
+      padding-bottom: max(0.35rem, env(safe-area-inset-bottom));
+    }
+
+    /* Mapa Leaflet */
+    #leaflet-map {
+      width: 100%;
+      height: 100%;
+      background: #070d1a;
+      z-index: 1;
+    }
+    .leaflet-container {
+      font-family: 'Inter', sans-serif !important;
+      background: #070d1a !important;
+    }
+    .leaflet-control-attribution {
+      background: rgba(6, 11, 22, 0.82) !important;
+      color: #94a3b8 !important;
+      font-size: 9px !important;
+      padding: 1px 5px !important;
+    }
+    .leaflet-control-attribution a { color: #38bdf8 !important; }
+    .leaflet-control-zoom a {
+      width: 34px !important;
+      height: 34px !important;
+      line-height: 32px !important;
+      background: rgba(15, 23, 42, 0.92) !important;
+      color: #f8fafc !important;
+      border-color: #334155 !important;
+      font-size: 16px !important;
+    }
+    .leaflet-control-layers {
+      background: rgba(11, 17, 32, 0.94) !important;
+      color: #f1f5f9 !important;
+      border: 1px solid #334155 !important;
+      border-radius: 10px !important;
+      font-size: 11px !important;
+    }
+
+    /* Etiquetas de estaciones */
+    .station-label-terminal {
+      background: rgba(6, 11, 22, 0.92) !important;
+      border: 1px solid rgba(148, 163, 184, 0.45) !important;
+      color: #f8fafc !important;
+      font-weight: 800 !important;
+      font-size: 10.5px !important;
+      padding: 2px 6px !important;
+      border-radius: 6px !important;
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.65) !important;
+      white-space: nowrap !important;
+    }
+    .station-label-terminal::before { display: none !important; }
+
+    .station-label-node {
+      background: rgba(69, 26, 3, 0.95) !important;
+      border: 1px solid #f59e0b !important;
+      color: #fde68a !important;
+      font-weight: 800 !important;
+      font-size: 10.5px !important;
+      padding: 2px 6px !important;
+      border-radius: 6px !important;
+      box-shadow: 0 3px 12px rgba(245, 158, 11, 0.35) !important;
+      white-space: nowrap !important;
+    }
+    .station-label-node::before { display: none !important; }
+
+    .station-label-minor {
+      background: rgba(6, 11, 22, 0.84) !important;
+      border: 1px solid rgba(51, 65, 85, 0.65) !important;
+      color: #cbd5e1 !important;
+      font-weight: 600 !important;
+      font-size: 9.5px !important;
+      padding: 1px 5px !important;
+      border-radius: 5px !important;
+      white-space: nowrap !important;
+    }
+    .station-label-minor::before { display: none !important; }
+
+    /* Modo alto contraste oscuro automático en Argenmap (IGN) */
+    .argenmap-contrast .station-label-node {
+      background: #0b1120 !important;
+      border: 1.5px solid #fbbf24 !important;
+      color: #fde68a !important;
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.9) !important;
+    }
+    .argenmap-contrast .station-label-terminal {
+      background: #0b1120 !important;
+      border: 1.5px solid #fbbf24 !important;
+      color: #ffffff !important;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.85) !important;
+    }
+    .argenmap-contrast .station-label-minor {
+      background: #0b1120 !important;
+      border: 1px solid #fbbf24 !important;
+      color: #f8fafc !important;
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.8) !important;
+    }
+
+    .hide-minor-labels .station-label-minor {
+      display: none !important;
+    }
+
+    .train-marker-badge {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      border-radius: 9999px;
+      border: 2px solid #ffffff;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+      transition: transform 0.15s linear;
+    }
+  </style>
+</head>
+<body class="flex flex-col min-h-dvh select-none lg:select-auto">
+
+  <!-- =====================================================================
+       1. CABECERA SUPERIOR COMPACTA Y TÁCTIL (MÓVIL + ESCRITORIO)
+  ====================================================================== -->
+  <header class="sticky top-0 z-40 glass-surface border-b px-3 py-2 shadow-xl">
+    <div class="max-w-[1640px] mx-auto flex flex-col gap-1.5">
+      
+      <!-- Fila 1: Título + Crédito + Reloj + Play/Pausa + Velocidad -->
+      <div class="flex items-center justify-between gap-2">
+        <div class="min-w-0">
+          <div class="flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-amber-400 shrink-0"></span>
+            <h1 class="text-[13px] sm:text-base font-extrabold text-white truncate tracking-tight">
+              Mitre ↔ Costa <span class="text-slate-400 font-semibold">· @mbattaglia07</span>
+            </h1>
+          </div>
+          <div class="flex items-center gap-2 text-[10px] text-slate-400 mt-0.5">
+            <span id="header-regime-pill" class="text-sky-300 font-bold">Lun a Vie</span>
+            <span>•</span>
+            <span>Puente: <strong id="header-walk-pill" class="text-amber-300 font-mono">5 min</strong></span>
+            <span class="hidden sm:inline">•</span>
+            <span class="hidden sm:inline text-emerald-400">Mitre 26/10/26 + TC 02/01/26</span>
+          </div>
+        </div>
+
+        <!-- Controles de Tiempo Táctiles (min-h-[44px]) -->
+        <div class="flex items-center gap-1.5 shrink-0">
+          <button
+            id="btn-play-pause"
+            type="button"
+            aria-label="Pausar o reanudar simulación"
+            class="min-w-[44px] min-h-[44px] rounded-xl bg-sky-500 active:bg-sky-400 text-slate-950 flex items-center justify-center shadow-lg transition cursor-pointer"
+          >
+            <svg id="icon-pause" class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+              <rect x="6" y="4" width="4" height="16" rx="1"></rect>
+              <rect x="14" y="4" width="4" height="16" rx="1"></rect>
+            </svg>
+            <svg id="icon-play" class="w-5 h-5 hidden" viewBox="0 0 24 24" fill="currentColor">
+              <polygon points="5 3 19 12 5 21 5 3"></polygon>
+            </svg>
+          </button>
+
+          <div class="bg-slate-900/95 border border-slate-700/80 rounded-xl px-2.5 py-1 min-h-[44px] flex flex-col justify-center">
+            <div id="sim-clock" class="font-mono text-base sm:text-lg font-black text-white leading-none tracking-tight">
+              07:30
+            </div>
+            <div id="sim-period-short" class="text-[9.5px] font-semibold text-slate-400 leading-tight mt-0.5">
+              Pico Mañana
+            </div>
+          </div>
+
+          <button
+            id="btn-speed-cycle"
+            type="button"
+            aria-label="Cambiar velocidad de simulación"
+            class="min-w-[52px] min-h-[44px] px-2 rounded-xl bg-amber-500/20 active:bg-amber-500/35 border border-amber-400/50 text-amber-300 font-mono text-xs font-extrabold flex flex-col items-center justify-center transition cursor-pointer"
+          >
+            <span id="speed-label">180x</span>
+            <span class="text-[8.5px] uppercase tracking-wider text-amber-200/70">Vel.</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Fila 2: Línea de tiempo táctil 00:00 - 23:59 -->
+      <div class="flex items-center gap-2">
+        <span class="font-mono text-[10px] text-slate-400 shrink-0">00:00</span>
+        <input
+          id="time-scrubber"
+          type="range"
+          min="0"
+          max="1439"
+          value="450"
+          aria-label="Línea de tiempo 24 horas"
+          class="touch-slider flex-1"
+        />
+        <span class="font-mono text-[10px] text-slate-400 shrink-0">23:59</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- =====================================================================
+       2. CONTENEDOR PRINCIPAL DE VISTAS (PESTAÑAS EN MÓVIL · GRID EN ESCRITORIO)
+  ====================================================================== -->
+  <main class="flex-1 max-w-[1640px] w-full mx-auto pb-20 lg:pb-6 lg:px-4 lg:pt-4">
+
+    <!-- Layout Grid en Escritorio (lg:grid-cols-12) y Vistas por Pestaña en Móvil -->
+    <div class="lg:grid lg:grid-cols-12 lg:gap-4">
+
+      <!-- =================================================================
+           PESTAÑA 1: MAPA LEAFLET A PANTALLA COMPLETA EN MÓVIL
+      ================================================================== -->
+      <section
+        id="tab-view-map"
+        class="tab-panel block lg:col-span-7 relative w-full h-[calc(100dvh-158px)] min-h-[430px] lg:h-[600px] lg:rounded-2xl lg:overflow-hidden lg:border lg:border-slate-800 shadow-2xl"
+      >
+        <div id="map-wrapper" class="relative w-full h-full bg-[#070d1a]">
+          <div id="leaflet-map"></div>
+
+          <!-- Barra flotante superior sobre el mapa: Selector Capa Base + Botones Zoom -->
+          <div class="absolute top-2.5 left-12 right-2.5 z-[500] flex flex-wrap items-center justify-end gap-1.5 pointer-events-none">
+            <div class="pointer-events-auto flex items-center bg-slate-950/90 backdrop-blur-md border border-slate-700/85 rounded-xl px-2 min-h-[38px] shadow-lg">
+              <select
+                id="basemap-select-top"
+                aria-label="Seleccionar mapa base"
+                class="bg-transparent text-[11px] font-bold text-sky-300 focus:outline-none cursor-pointer"
+              >
+                <option value="esriSat" class="bg-slate-900 text-white" selected>Satélite Esri</option>
+                <option value="ignArgenmap" class="bg-slate-900 text-white">Argenmap (IGN)</option>
+              </select>
+            </div>
+
+            <button
+              id="btn-zoom-bridge"
+              type="button"
+              class="pointer-events-auto min-h-[38px] px-2.5 rounded-xl text-[11px] font-extrabold bg-amber-500/90 active:bg-amber-400 text-slate-950 shadow-lg flex items-center gap-1 cursor-pointer"
+            >
+              🔍 Nodo Mitre/Maipú
+            </button>
+
+            <button
+              id="btn-zoom-full"
+              type="button"
+              class="pointer-events-auto min-h-[38px] px-2.5 rounded-xl text-[11px] font-bold bg-slate-950/90 active:bg-slate-800 text-slate-100 border border-slate-700/85 shadow-lg flex items-center gap-1 cursor-pointer"
+            >
+              ⌖ Centrar
+            </button>
+          </div>
+
+          <!-- Cartel flotante Puente Peatonal (con alto contraste oscuro automático en Argenmap IGN) -->
+          <div
+            id="bridge-floating-card"
+            class="absolute top-14 left-2.5 z-[500] bg-slate-950/88 backdrop-blur-md border border-amber-500/45 rounded-xl px-2.5 py-1.5 max-w-[235px] pointer-events-none shadow-xl transition-all duration-200"
+          >
+            <div id="bridge-floating-title" class="flex items-center gap-1.5 text-[10.5px] font-extrabold text-amber-300 leading-tight">
+              <span class="w-2 h-2 rounded-full bg-amber-400 shrink-0"></span>
+              Puente Peatonal Av. Maipú ↔ Bmé. Mitre
+            </div>
+            <div id="bridge-floating-desc" class="text-[9.5px] text-slate-300 mt-0.5">
+              Caminata: <strong id="overlay-walk-min" class="text-amber-300 font-mono">5 min</strong> ·
+              <span class="text-sky-400 font-bold">Mitre</span> &amp; <span class="text-emerald-400 font-bold">Costa</span>
+            </div>
+          </div>
+
+          <!-- Tarjeta Flotante Desplegable Compacta de Trasbordos en Vivo sobre el Mapa (Móvil) -->
+          <div class="absolute bottom-5 left-2.5 right-2.5 z-[500] lg:hidden">
+            <div class="bg-slate-950/92 backdrop-blur-md border border-slate-700/90 rounded-2xl shadow-2xl overflow-hidden">
+              <button
+                id="btn-toggle-map-drawer"
+                type="button"
+                class="w-full px-3 py-2 flex items-center justify-between gap-2 text-left min-h-[42px] cursor-pointer"
+              >
+                <div class="flex items-center gap-2 min-w-0">
+                  <span class="text-[11px] font-extrabold text-white shrink-0">Trasbordos en vivo</span>
+                  <span id="drawer-summary-pills" class="flex items-center gap-1.5 text-[10px] font-mono truncate">
+                    <span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300">Sur: --m</span>
+                    <span class="px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300">Norte: --m</span>
+                  </span>
+                </div>
+                <span id="drawer-chevron" class="text-xs font-bold text-amber-300 shrink-0">▲ Ver</span>
+              </button>
+
+              <!-- Contenido desplegable con los 2 contadores compactos -->
+              <div id="map-drawer-body" class="hidden px-3 pb-3 pt-1 border-t border-slate-800/90 grid grid-cols-2 gap-2">
+                <!-- Mini Sur -->
+                <div class="bg-slate-900/95 border border-emerald-500/30 rounded-xl p-2">
+                  <div class="flex items-center justify-between gap-1">
+                    <span class="text-[9.5px] font-extrabold text-emerald-300 uppercase">Sur → Retiro</span>
+                    <span id="mini-sur-badge" class="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300">Óptima</span>
+                  </div>
+                  <div id="mini-sur-times" class="font-mono text-xs font-black text-white mt-1">--:-- → --:--</div>
+                  <div id="mini-sur-wait" class="font-mono text-[10px] text-slate-300 mt-0.5">Bruta: --m · Ef.: --m</div>
+                </div>
+
+                <!-- Mini Norte -->
+                <div class="bg-slate-900/95 border border-sky-500/30 rounded-xl p-2">
+                  <div class="flex items-center justify-between gap-1">
+                    <span class="text-[9.5px] font-extrabold text-sky-300 uppercase">Norte → Delta</span>
+                    <span id="mini-norte-badge" class="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300">Óptima</span>
+                  </div>
+                  <div id="mini-norte-times" class="font-mono text-xs font-black text-white mt-1">--:-- → --:--</div>
+                  <div id="mini-norte-wait" class="font-mono text-[10px] text-slate-300 mt-0.5">Bruta: --m · Ef.: --m</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- =================================================================
+           PESTAÑA 2: TRASBORDOS EN VIVO + 2 GRÁFICOS DE BARRAS 24H PARALELOS
+      ================================================================== -->
+      <section
+        id="tab-view-transfers"
+        class="tab-panel hidden lg:flex lg:col-span-5 flex-col gap-3 p-3 lg:p-0"
+      >
+        <!-- TARJETA SENTIDO SUR -->
+        <div class="glass-surface border rounded-2xl p-3.5 border-l-4 border-l-emerald-400 shadow-xl">
+          <div class="flex items-start justify-between gap-2">
+            <div>
+              <span class="inline-block px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 text-[10px] font-extrabold uppercase tracking-wider">
+                Sentido Sur · Hacia CABA
+              </span>
+              <h2 class="text-sm font-extrabold text-white mt-1">
+                Delta → Av. Maipú <span class="text-amber-400">⇄</span> Bmé. Mitre → Retiro
+              </h2>
+            </div>
+            <span id="sur-status-badge" class="px-2 py-1 rounded-lg text-[11px] font-extrabold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shrink-0">
+              Óptima
+            </span>
+          </div>
+
+          <div class="grid grid-cols-3 gap-2 mt-2.5">
+            <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-2">
+              <div class="text-[10px] text-slate-400">Arribo Maipú</div>
+              <div id="sur-arr-time" class="font-mono text-base font-extrabold text-emerald-400 mt-0.5">--:--</div>
+              <div id="sur-arr-train" class="text-[10px] text-slate-400 truncate">TC ---</div>
+            </div>
+            <div class="bg-slate-900/90 border border-amber-500/35 rounded-xl p-2 text-center">
+              <div class="text-[10px] text-amber-300 font-semibold">Dif. Bruta</div>
+              <div id="sur-diff-min" class="font-mono text-base font-black text-white mt-0.5">-- min</div>
+              <div id="sur-net-margin" class="text-[9.5px] font-mono text-slate-400">Neto: --m</div>
+            </div>
+            <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-2 text-right">
+              <div class="text-[10px] text-slate-400">Salida Mitre</div>
+              <div id="sur-dep-time" class="font-mono text-base font-extrabold text-sky-400 mt-0.5">--:--</div>
+              <div id="sur-dep-train" class="text-[10px] text-slate-400 truncate">M ----</div>
+            </div>
+          </div>
+
+          <div class="mt-2 px-2.5 py-1.5 rounded-xl bg-slate-900/85 border border-slate-800 flex flex-wrap items-center justify-between gap-1 text-[11px]">
+            <span id="sur-countdown-text" class="text-slate-300">Sincronizando...</span>
+            <span id="sur-effective-pill" class="font-mono font-bold text-emerald-300">Espera ef.: -- min</span>
+          </div>
+
+          <div class="grid grid-cols-4 gap-1 mt-2.5 pt-2 border-t border-slate-800/80 text-center">
+            <div>
+              <div class="text-[9.5px] text-slate-500">Prom. Bruto</div>
+              <div id="sur-kpi-avg" class="font-mono text-xs font-bold text-slate-200">-- m</div>
+            </div>
+            <div>
+              <div class="text-[9.5px] text-slate-500">Mín / Máx</div>
+              <div id="sur-kpi-minmax" class="font-mono text-xs font-bold text-slate-200">--/--</div>
+            </div>
+            <div>
+              <div class="text-[9.5px] text-slate-500">Alcanzables</div>
+              <div id="sur-kpi-ok" class="font-mono text-xs font-bold text-emerald-400">--%</div>
+            </div>
+            <div>
+              <div class="text-[9.5px] text-slate-500">Prom. Ef.</div>
+              <div id="sur-kpi-eff" class="font-mono text-xs font-bold text-amber-300">-- m</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TARJETA SENTIDO NORTE -->
+        <div class="glass-surface border rounded-2xl p-3.5 border-l-4 border-l-sky-400 shadow-xl">
+          <div class="flex items-start justify-between gap-2">
+            <div>
+              <span class="inline-block px-2 py-0.5 rounded bg-sky-500/15 text-sky-300 text-[10px] font-extrabold uppercase tracking-wider">
+                Sentido Norte · Hacia Tigre
+              </span>
+              <h2 class="text-sm font-extrabold text-white mt-1">
+                Retiro → Bmé. Mitre <span class="text-amber-400">⇄</span> Av. Maipú → Delta
+              </h2>
+            </div>
+            <span id="norte-status-badge" class="px-2 py-1 rounded-lg text-[11px] font-extrabold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shrink-0">
+              Óptima
+            </span>
+          </div>
+
+          <div class="grid grid-cols-3 gap-2 mt-2.5">
+            <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-2">
+              <div class="text-[10px] text-slate-400">Arribo Mitre</div>
+              <div id="norte-arr-time" class="font-mono text-base font-extrabold text-sky-400 mt-0.5">--:--</div>
+              <div id="norte-arr-train" class="text-[10px] text-slate-400 truncate">M ----</div>
+            </div>
+            <div class="bg-slate-900/90 border border-amber-500/35 rounded-xl p-2 text-center">
+              <div class="text-[10px] text-amber-300 font-semibold">Dif. Bruta</div>
+              <div id="norte-diff-min" class="font-mono text-base font-black text-white mt-0.5">-- min</div>
+              <div id="norte-net-margin" class="text-[9.5px] font-mono text-slate-400">Neto: --m</div>
+            </div>
+            <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-2 text-right">
+              <div class="text-[10px] text-slate-400">Salida Maipú</div>
+              <div id="norte-dep-time" class="font-mono text-base font-extrabold text-emerald-400 mt-0.5">--:--</div>
+              <div id="norte-dep-train" class="text-[10px] text-slate-400 truncate">TC ---</div>
+            </div>
+          </div>
+
+          <div class="mt-2 px-2.5 py-1.5 rounded-xl bg-slate-900/85 border border-slate-800 flex flex-wrap items-center justify-between gap-1 text-[11px]">
+            <span id="norte-countdown-text" class="text-slate-300">Sincronizando...</span>
+            <span id="norte-effective-pill" class="font-mono font-bold text-sky-300">Espera ef.: -- min</span>
+          </div>
+
+          <div class="grid grid-cols-4 gap-1 mt-2.5 pt-2 border-t border-slate-800/80 text-center">
+            <div>
+              <div class="text-[9.5px] text-slate-500">Prom. Bruto</div>
+              <div id="norte-kpi-avg" class="font-mono text-xs font-bold text-slate-200">-- m</div>
+            </div>
+            <div>
+              <div class="text-[9.5px] text-slate-500">Mín / Máx</div>
+              <div id="norte-kpi-minmax" class="font-mono text-xs font-bold text-slate-200">--/--</div>
+            </div>
+            <div>
+              <div class="text-[9.5px] text-slate-500">Alcanzables</div>
+              <div id="norte-kpi-ok" class="font-mono text-xs font-bold text-emerald-400">--%</div>
+            </div>
+            <div>
+              <div class="text-[9.5px] text-slate-500">Prom. Ef.</div>
+              <div id="norte-kpi-eff" class="font-mono text-xs font-bold text-amber-300">-- m</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- DOS GRÁFICOS DE BARRAS 24H VISIBLES SIMULTÁNEAMENTE EN MÓVIL (LADO A LADO O APILADOS CÓMODOS) -->
+        <div class="glass-surface border rounded-2xl p-3 shadow-xl space-y-2.5 lg:hidden">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs font-extrabold text-white">Tiempos de Espera / Perdidos (24 h)</h3>
+            <span class="text-[10px] text-slate-400">Tocá una barra</span>
+          </div>
+
+          <!-- Leyenda compacta 5 colores -->
+          <div class="flex flex-wrap gap-1.5 text-[9.5px] font-bold">
+            <span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300">● Se pierde</span>
+            <span class="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300">● Justa (0-2m)</span>
+            <span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300">● Óptima (≤10m)</span>
+            <span class="px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-300">● Excesiva (&gt;10m)</span>
+            <span class="px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300">● No funciona (&gt;20m)</span>
+          </div>
+
+          <!-- Ambos gráficos visibles a la vez en pantalla móvil -->
+          <div class="space-y-2.5">
+            <div class="bg-slate-950/70 border border-slate-800 rounded-xl p-2">
+              <div class="flex items-center justify-between text-[10.5px] font-bold text-emerald-300 mb-1">
+                <span>Delta → Maipú → Mitre → Retiro</span>
+                <span id="mob-chart-sur-count" class="font-mono text-[9.5px] text-slate-400">--</span>
+              </div>
+              <div class="relative w-full h-[140px]">
+                <canvas id="mob-wait-chart-sur" class="block w-full h-full cursor-pointer"></canvas>
+              </div>
+            </div>
+
+            <div class="bg-slate-950/70 border border-slate-800 rounded-xl p-2">
+              <div class="flex items-center justify-between text-[10.5px] font-bold text-sky-300 mb-1">
+                <span>Retiro → Mitre → Maipú → Delta</span>
+                <span id="mob-chart-norte-count" class="font-mono text-[9.5px] text-slate-400">--</span>
+              </div>
+              <div class="relative w-full h-[140px]">
+                <canvas id="mob-wait-chart-norte" class="block w-full h-full cursor-pointer"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <!-- Detalle táctil de barra seleccionada -->
+          <div id="mob-chart-selected-info" class="bg-slate-900/95 border border-slate-700/80 rounded-xl px-2.5 py-2 text-[11px] text-slate-300">
+            Tocá cualquier barra en los gráficos de arriba para saltar a ese horario y ver su desglose.
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- =================================================================
+         SECCIÓN ESCRITORIO: DOS GRÁFICOS DE BARRAS PARALELOS (VISIBLE EN lg:)
+    ================================================================== -->
+    <section class="hidden lg:block glass-surface border rounded-2xl p-4 mt-4 shadow-xl space-y-3">
+      <div class="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-800/80">
+        <div>
+          <h2 class="text-sm font-extrabold text-white">
+            Tiempos de Espera y Tiempos Perdidos en 24 Horas (Ambos Sentidos en Paralelo)
+          </h2>
+          <p class="text-[11px] text-slate-400">
+            Umbrales marcados en <strong class="text-orange-400">10 min (Excesiva)</strong> y <strong class="text-purple-400">20 min (No funciona como combinación)</strong>.
+          </p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2 text-[11px] font-semibold">
+          <span class="px-2 py-0.5 rounded bg-rose-500/15 text-rose-300 border border-rose-500/30">● Se pierde (&lt;0m)</span>
+          <span class="px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">● Muy justa (0–2m)</span>
+          <span class="px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">● Óptima (&gt;2–10m)</span>
+          <span class="px-2 py-0.5 rounded bg-orange-500/15 text-orange-300 border border-orange-500/30">● Excesiva (&gt;10–20m)</span>
+          <span class="px-2 py-0.5 rounded bg-purple-500/15 text-purple-300 border border-purple-500/30">● No funciona (&gt;20m)</span>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div class="bg-slate-950/60 border border-slate-800 rounded-xl p-3">
+          <div class="flex items-center justify-between mb-1.5">
+            <h3 class="text-xs font-extrabold text-emerald-300">Tigre (Delta) → Av. Maipú → Bmé. Mitre → Retiro</h3>
+            <span id="desk-chart-sur-count" class="font-mono text-[10px] text-slate-400">--</span>
+          </div>
+          <div class="relative w-full h-[190px]">
+            <canvas id="desk-wait-chart-sur" class="block w-full h-full cursor-pointer"></canvas>
+            <div id="desk-tooltip-sur" class="hidden absolute z-30 pointer-events-none bg-slate-950/95 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs shadow-2xl"></div>
+          </div>
+        </div>
+
+        <div class="bg-slate-950/60 border border-slate-800 rounded-xl p-3">
+          <div class="flex items-center justify-between mb-1.5">
+            <h3 class="text-xs font-extrabold text-sky-300">Retiro → Bmé. Mitre → Av. Maipú → Tigre (Delta)</h3>
+            <span id="desk-chart-norte-count" class="font-mono text-[10px] text-slate-400">--</span>
+          </div>
+          <div class="relative w-full h-[190px]">
+            <canvas id="desk-wait-chart-norte" class="block w-full h-full cursor-pointer"></canvas>
+            <div id="desk-tooltip-norte" class="hidden absolute z-30 pointer-events-none bg-slate-950/95 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs shadow-2xl"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =================================================================
+         PESTAÑA 3: TABLA CRONOLÓGICA DE DIFERENCIAS ACUMULADAS
+    ================================================================== -->
+    <section
+      id="tab-view-accumulated"
+      class="tab-panel hidden lg:block glass-surface border rounded-2xl overflow-hidden shadow-2xl m-3 lg:m-0 lg:mt-4"
+    >
+      <div class="p-3.5 border-b border-slate-800 bg-slate-900/70 space-y-2.5">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 class="text-sm sm:text-base font-extrabold text-white">
+              Diferencias de Horarios Acumulada
+            </h2>
+            <p class="text-[11px] text-slate-400">
+              Tocá cualquier fila para saltar el reloj a ese trasbordo.
+            </p>
+          </div>
+          <span id="table-scope-badge" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-500/20 text-sky-300 border border-sky-500/30">
+            Hasta 07:30
+          </span>
+        </div>
+
+        <!-- Filtros táctiles grandes (min-h-[40px]) -->
+        <div class="flex flex-wrap items-center gap-2">
+          <div class="grid grid-cols-3 bg-slate-950 border border-slate-800 rounded-xl p-1 text-[11px] w-full sm:w-auto">
+            <button type="button" data-table-dir="ALL" class="tbl-dir-btn min-h-[36px] px-2.5 rounded-lg font-bold bg-slate-800 text-white cursor-pointer">Ambos</button>
+            <button type="button" data-table-dir="SUR" class="tbl-dir-btn min-h-[36px] px-2.5 rounded-lg font-semibold text-slate-400 cursor-pointer">Sur (TC→M)</button>
+            <button type="button" data-table-dir="NORTE" class="tbl-dir-btn min-h-[36px] px-2.5 rounded-lg font-semibold text-slate-400 cursor-pointer">Norte (M→TC)</button>
+          </div>
+
+          <select
+            id="table-status-filter"
+            aria-label="Filtrar por categoría"
+            class="min-h-[42px] bg-slate-950 border border-slate-800 rounded-xl px-2.5 text-xs font-semibold text-slate-200 flex-1 sm:flex-initial cursor-pointer"
+          >
+            <option value="ALL">Todas las categorías (5)</option>
+            <option value="OPTIMAL">Óptima (&gt;2m a 10m)</option>
+            <option value="TIGHT">Muy justa (0–2m neta)</option>
+            <option value="LOST">Se pierde (&lt;0m neta)</option>
+            <option value="EXCESSIVE">Excesiva (&gt;10m a 20m)</option>
+            <option value="INVALID">No funciona (&gt;20m)</option>
+          </select>
+
+          <div class="grid grid-cols-2 bg-slate-950 border border-slate-800 rounded-xl p-1 text-[11px] w-full sm:w-auto">
+            <button type="button" data-table-mode="LIVE" class="tbl-mode-btn min-h-[36px] px-2.5 rounded-lg font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 cursor-pointer">En vivo</button>
+            <button type="button" data-table-mode="FULL" class="tbl-mode-btn min-h-[36px] px-2.5 rounded-lg font-semibold text-slate-400 cursor-pointer">Día 24h</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- KPIs Acumulados Compactos -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 p-3 bg-slate-950/60 border-b border-slate-800">
+        <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-2.5">
+          <div class="text-[10px] text-slate-400">Trasbordos</div>
+          <div id="acc-kpi-count" class="font-mono text-lg font-extrabold text-white mt-0.5">0</div>
+          <div id="acc-kpi-split" class="text-[9.5px] font-mono text-slate-400">0 Sur · 0 Norte</div>
+        </div>
+        <div class="bg-slate-900/90 border border-sky-500/30 rounded-xl p-2.5">
+          <div class="text-[10px] text-sky-300">Dif. Bruta Acum.</div>
+          <div id="acc-kpi-bruta" class="font-mono text-lg font-extrabold text-sky-400 mt-0.5">0 min</div>
+          <div id="acc-kpi-bruta-hs" class="text-[9.5px] font-mono text-slate-400">(00:00 h)</div>
+        </div>
+        <div class="bg-slate-900/90 border border-emerald-500/30 rounded-xl p-2.5">
+          <div class="text-[10px] text-emerald-300">Espera Ef. Acum.</div>
+          <div id="acc-kpi-efectiva" class="font-mono text-lg font-extrabold text-emerald-400 mt-0.5">0 min</div>
+          <div id="acc-kpi-avg" class="text-[9.5px] font-mono text-slate-400">Prom: 0,0 m</div>
+        </div>
+        <div class="bg-slate-900/90 border border-rose-500/30 rounded-xl p-2.5">
+          <div class="text-[10px] text-rose-300">Perd. / Exc. / &gt;20m</div>
+          <div id="acc-kpi-bad" class="font-mono text-base font-extrabold text-rose-400 mt-0.5">0 / 0 / 0</div>
+          <div id="acc-kpi-tight" class="text-[9.5px] font-mono text-amber-300">0 muy justas</div>
+        </div>
+      </div>
+
+      <!-- Tabla Responsive con Scroll Horizontal Suave si es necesario y Columna Sticky -->
+      <div class="overflow-x-auto max-h-[55dvh] overflow-y-auto">
+        <table class="w-full text-left border-collapse text-[11px] sm:text-xs">
+          <thead class="sticky top-0 z-20 bg-slate-900 text-slate-300 border-b border-slate-700">
+            <tr>
+              <th class="py-2.5 px-2.5 font-bold">#</th>
+              <th class="py-2.5 px-2.5 font-bold">Sentido</th>
+              <th class="py-2.5 px-2.5 font-bold">Arribo</th>
+              <th class="py-2.5 px-2.5 font-bold">Enlace</th>
+              <th class="py-2.5 px-2.5 font-bold text-right">Δt Bruta</th>
+              <th class="py-2.5 px-2.5 font-bold text-center">Estado</th>
+              <th class="py-2.5 px-2.5 font-bold text-right">Ef.</th>
+              <th class="py-2.5 px-2.5 font-bold text-right bg-sky-950/50 text-sky-300">Acumulado</th>
+            </tr>
+          </thead>
+          <tbody id="accumulated-table-body" class="divide-y divide-slate-800/80 tabular-nums"></tbody>
+          <tfoot id="accumulated-table-foot" class="sticky bottom-0 z-20 bg-slate-900/95 border-t-2 border-slate-700 font-bold text-slate-100"></tfoot>
+        </table>
+      </div>
+    </section>
+
+    <!-- =================================================================
+         PESTAÑA 4: AJUSTES DE SIMULACIÓN (MÓVIL + PANEL ESCRITORIO)
+    ================================================================== -->
+    <section
+      id="tab-view-settings"
+      class="tab-panel hidden lg:block glass-surface border rounded-2xl p-4 shadow-xl m-3 lg:m-0 lg:mt-4 space-y-4"
+    >
+      <div class="flex items-center justify-between border-b border-slate-800 pb-2.5">
+        <div>
+          <h2 class="text-sm sm:text-base font-extrabold text-white">Parámetros Operativos y Cartografía</h2>
+          <p class="text-[11px] text-slate-400">Configurá el día tipo, caminata por el puente y mapa base.</p>
+        </div>
+        <button
+          id="btn-reset-day"
+          type="button"
+          class="min-h-[42px] px-3 rounded-xl bg-slate-800 active:bg-slate-700 text-xs font-bold text-slate-200 border border-slate-700 cursor-pointer"
+        >
+          ↺ Reiniciar 04:45
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <!-- 1. Régimen Horario -->
+        <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3 space-y-2">
+          <div class="text-xs font-extrabold text-sky-300 uppercase tracking-wider">1. Régimen Horario</div>
+          <div class="grid grid-cols-3 gap-1.5">
+            <button type="button" data-regime="weekday" class="regime-btn min-h-[44px] px-2 rounded-xl text-xs font-extrabold bg-sky-500/20 text-sky-300 border border-sky-500/50 cursor-pointer">
+              Lun a Vie
+            </button>
+            <button type="button" data-regime="saturday" class="regime-btn min-h-[44px] px-2 rounded-xl text-xs font-bold bg-slate-950 text-slate-400 border border-slate-800 cursor-pointer">
+              Sábados
+            </button>
+            <button type="button" data-regime="sunday" class="regime-btn min-h-[44px] px-2 rounded-xl text-xs font-bold bg-slate-950 text-slate-400 border border-slate-800 cursor-pointer">
+              Dom y Fer
+            </button>
+          </div>
+          <p class="text-[11px] text-slate-400 leading-snug">
+            Mitre 33xx/34xx (26/10/2026) y Tren de la Costa 101–180 (02/01/2026).
+          </p>
+        </div>
+
+        <!-- 2. Margen Caminata Puente Peatonal (5 min por defecto) -->
+        <div class="bg-amber-950/25 border border-amber-500/40 rounded-xl p-3 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-extrabold text-amber-300 uppercase tracking-wider">2. Caminata Puente</span>
+            <span id="walk-margin-badge" class="font-mono text-sm font-black text-amber-300 bg-amber-500/20 border border-amber-400/50 px-2.5 py-0.5 rounded-lg">
+              5 min
+            </span>
+          </div>
+          <input
+            id="walk-margin-slider"
+            type="range"
+            min="0"
+            max="10"
+            step="1"
+            value="5"
+            aria-label="Minutos de caminata por puente peatonal"
+            class="walk-touch-slider w-full"
+          />
+          <div class="flex justify-between font-mono text-[10px] text-slate-400">
+            <span>0 min</span>
+            <span>5 min (Defecto)</span>
+            <span>10 min</span>
+          </div>
+        </div>
+
+        <!-- 3. Mapa Base -->
+        <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3 space-y-2">
+          <div class="text-xs font-extrabold text-emerald-300 uppercase tracking-wider">3. Mapa Base</div>
+          <div class="grid grid-cols-2 gap-2">
+            <button type="button" data-basemap-btn="esriSat" class="basemap-opt-btn min-h-[44px] px-3 rounded-xl text-xs font-extrabold bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 cursor-pointer">
+              Satélite Esri
+            </button>
+            <button type="button" data-basemap-btn="ignArgenmap" class="basemap-opt-btn min-h-[44px] px-3 rounded-xl text-xs font-bold bg-slate-950 text-slate-300 border border-slate-800 cursor-pointer">
+              Argenmap (IGN)
+            </button>
+          </div>
+          <p class="text-[11px] text-slate-400 leading-snug">
+            Argenmap activa automáticamente carteles oscuros de alto contraste en el nodo.
+          </p>
+        </div>
+      </div>
+
+      <!-- Leyenda de Clasificación de 5 Niveles -->
+      <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-3 space-y-2">
+        <div class="text-xs font-extrabold text-slate-200 uppercase tracking-wider">Clasificación de Combinaciones</div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 text-[11px]">
+          <div class="p-2 rounded-lg bg-rose-500/10 border border-rose-500/30">
+            <strong class="text-rose-300 block">1. Se pierde (&lt;0m neta)</strong>
+            <span class="text-slate-400">No alcanza a cruzar; calcula el próximo tren.</span>
+          </div>
+          <div class="p-2 rounded-lg bg-amber-500/10 border border-amber-500/30">
+            <strong class="text-amber-300 block">2. Muy justa (0–2m neta)</strong>
+            <span class="text-slate-400">Margen mínimo tras caminar el puente.</span>
+          </div>
+          <div class="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30">
+            <strong class="text-emerald-300 block">3. Óptima (&gt;2m a 10m)</strong>
+            <span class="text-slate-400">Trasbordo cómodo y espera breve.</span>
+          </div>
+          <div class="p-2 rounded-lg bg-orange-500/10 border border-orange-500/30">
+            <strong class="text-orange-300 block">4. Excesiva (&gt;10m a 20m)</strong>
+            <span class="text-slate-400">Demora prolongada en andén de enlace.</span>
+          </div>
+          <div class="p-2 rounded-lg bg-purple-500/10 border border-purple-500/30">
+            <strong class="text-purple-300 block">5. No funciona (&gt;20m)</strong>
+            <span class="text-slate-400">Espera &gt;20 min o fin de servicio nocturno.</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Pie de página visible en escritorio -->
+  <footer class="hidden lg:flex max-w-[1640px] w-full mx-auto px-4 py-3 text-[11px] text-slate-500 items-center justify-between border-t border-slate-900">
+    <span>Simulador Operativo Móvil &amp; Escritorio · Ramal Retiro – Bmé. Mitre (26/10/2026) &amp; Tren de la Costa (02/01/2026) · <strong class="text-slate-300">@mbattaglia07</strong></span>
+    <span>Caminata puente inicial: 5 min · Umbrales: 10m Excesiva / 20m No funciona</span>
+  </footer>
+
+  <!-- =====================================================================
+       3. BARRA DE NAVEGACIÓN INFERIOR FIJA PARA PULGAR (BOTTOM NAV MÓVIL)
+  ====================================================================== -->
+  <nav
+    aria-label="Navegación principal móvil"
+    class="lg:hidden fixed bottom-0 left-0 right-0 z-50 glass-surface border-t border-slate-800 bottom-nav-safe shadow-[0_-8px_24px_rgba(0,0,0,0.75)]"
+  >
+    <div class="grid grid-cols-4 gap-1 px-1.5 pt-1">
+      <button
+        type="button"
+        data-tab="map"
+        class="bottom-tab-btn min-h-[48px] rounded-xl flex flex-col items-center justify-center gap-0.5 text-sky-400 bg-sky-500/15 font-extrabold transition cursor-pointer"
+      >
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon>
+          <line x1="8" y1="2" x2="8" y2="18"></line>
+          <line x1="16" y1="6" x2="16" y2="22"></line>
+        </svg>
+        <span class="text-[10.5px]">Mapa</span>
+      </button>
+
+      <button
+        type="button"
+        data-tab="transfers"
+        class="bottom-tab-btn min-h-[48px] rounded-xl flex flex-col items-center justify-center gap-0.5 text-slate-400 font-semibold transition cursor-pointer"
+      >
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <polyline points="17 1 21 5 17 9"></polyline>
+          <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
+          <polyline points="7 23 3 19 7 15"></polyline>
+          <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
+        </svg>
+        <span class="text-[10.5px]">Trasbordos</span>
+      </button>
+
+      <button
+        type="button"
+        data-tab="accumulated"
+        class="bottom-tab-btn min-h-[48px] rounded-xl flex flex-col items-center justify-center gap-0.5 text-slate-400 font-semibold transition cursor-pointer"
+      >
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <line x1="8" y1="6" x2="21" y2="6"></line>
+          <line x1="8" y1="12" x2="21" y2="12"></line>
+          <line x1="8" y1="18" x2="21" y2="18"></line>
+          <line x1="3" y1="6" x2="3.01" y2="6"></line>
+          <line x1="3" y1="12" x2="3.01" y2="12"></line>
+          <line x1="3" y1="18" x2="3.01" y2="18"></line>
+        </svg>
+        <span class="text-[10.5px]">Acumulado</span>
+      </button>
+
+      <button
+        type="button"
+        data-tab="settings"
+        class="bottom-tab-btn min-h-[48px] rounded-xl flex flex-col items-center justify-center gap-0.5 text-slate-400 font-semibold transition cursor-pointer"
+      >
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+        <span class="text-[10.5px]">Ajustes</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- =====================================================================
+       4. MOTOR DE HORARIOS OFICIALES, MAPA LEAFLET, GRÁFICOS Y TABLA
+  ====================================================================== -->
+  <script>
+    // 1. ESTACIONES GEORREFERENCIADAS (22 ESTACIONES)
+    const MITRE_STATIONS = [
+      { id: 'RET', name: 'Retiro (Mitre)',  lat: -34.5913, lon: -58.3742, terminal: true },
+      { id: '3DF', name: '3 de Febrero',    lat: -34.5735, lon: -58.4239, terminal: false },
+      { id: 'CAR', name: 'Carranza',        lat: -34.5754, lon: -58.4368, terminal: false },
+      { id: 'COL', name: 'Colegiales',      lat: -34.5742, lon: -58.4494, terminal: false },
+      { id: 'BGR', name: 'Belgrano R',      lat: -34.5673, lon: -58.4631, terminal: false },
+      { id: 'COG', name: 'Coghlan',         lat: -34.5601, lon: -58.4748, terminal: false },
+      { id: 'SAA', name: 'Saavedra',        lat: -34.5528, lon: -58.4871, terminal: false },
+      { id: 'JBJ', name: 'J.B. Justo',      lat: -34.5446, lon: -58.4979, terminal: false },
+      { id: 'FLO', name: 'Florida',         lat: -34.5359, lon: -58.5048, terminal: false },
+      { id: 'CET', name: 'Cetrángolo',      lat: -34.5305, lon: -58.4969, terminal: false },
+      { id: 'BMI', name: 'Bartolomé Mitre', lat: -34.5256, lon: -58.4884, terminal: true, node: true }
+    ];
+
+    const COSTA_STATIONS = [
+      { id: 'MAI', name: 'Av. Maipú',          lat: -34.5245, lon: -58.4875, terminal: true, node: true },
+      { id: 'BOR', name: 'Borges',             lat: -34.5162, lon: -58.4795, terminal: false },
+      { id: 'LIB', name: 'Libertador',         lat: -34.5048, lon: -58.4793, terminal: false },
+      { id: 'ANC', name: 'Anchorena',          lat: -34.4926, lon: -58.4828, terminal: false },
+      { id: 'BAR', name: 'Las Barrancas',      lat: -34.4801, lon: -58.4902, terminal: false },
+      { id: 'SIR', name: 'San Isidro R',       lat: -34.4682, lon: -58.5038, terminal: false },
+      { id: 'PCH', name: 'Punta Chica',        lat: -34.4554, lon: -58.5218, terminal: false },
+      { id: 'MNU', name: 'Marina Nueva',       lat: -34.4461, lon: -58.5378, terminal: false },
+      { id: 'SFR', name: 'San Fernando R',     lat: -34.4396, lon: -58.5542, terminal: false },
+      { id: 'CSF', name: 'Canal San Fernando', lat: -34.4314, lon: -58.5695, terminal: false },
+      { id: 'DEL', name: 'Delta (Tigre)',      lat: -34.4234, lon: -58.5815, terminal: true }
+    ];
+
+    const MITRE_CUM_RATIOS = [0.00, 0.21, 0.27, 0.33, 0.41, 0.49, 0.57, 0.66, 0.76, 0.87, 1.00];
+    const COSTA_CUM_RATIOS = [0.00, 0.07, 0.15, 0.24, 0.34, 0.46, 0.59, 0.70, 0.81, 0.91, 1.00];
+
+    // 2. UTILIDADES DE TIEMPO
+    function toMins(hhmm) {
+      const [h, m] = hhmm.split(':').map(Number);
+      return h * 60 + m;
+    }
+    function formatHHMM(totalMins) {
+      const m = ((Math.floor(totalMins) % 1440) + 1440) % 1440;
+      return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+    }
+    function formatDurationHHMM(totalMins) {
+      const m = Math.max(0, Math.round(totalMins));
+      return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+    }
+
+    // 3. CRONOGRAMAS OFICIALES (MITRE 26/10/2026 + TREN DE LA COSTA 02/01/2026)
+    function buildServicesForRegime(regime) {
+      const mitreRetiroToMitre = [];
+      const mitreMitreToRetiro = [];
+      const costaMaipuToDelta  = [];
+      const costaDeltaToMaipu  = [];
+
+      function pushPairs(target, prefix, pairs, durMin, line, dir) {
+        pairs.forEach(([num, depStr]) => {
+          const dep = toMins(depStr);
+          target.push({
+            id: `${prefix}-${num}`,
+            code: `${prefix}${num}`,
+            line,
+            dir,
+            dep,
+            arr: dep + durMin,
+            dur: durMin
+          });
+        });
+      }
+
+      if (regime === 'weekday') {
+        const mitreNorteLV = [
+          [3303, '05:18'], [3309, '05:58'], [3315, '06:34'], [3321, '07:08'],
+          [3327, '07:42'], [3333, '08:16'], [3339, '08:50'], [3345, '09:24'],
+          [3351, '10:02'], [3357, '10:42'], [3363, '11:22'], [3369, '12:02'],
+          [3375, '12:42'], [3381, '13:22'], [3387, '14:02'], [3393, '14:42'],
+          [3399, '15:22'], [3405, '16:00'], [3411, '16:34'], [3417, '17:08'],
+          [3423, '17:42'], [3429, '18:16'], [3435, '18:50'], [3441, '19:30'],
+          [3445, '20:15'], [3449, '21:05'], [3453, '22:00'], [3457, '23:05']
+        ];
+        const mitreSurLV = [
+          [3304, '05:10'], [3310, '05:50'], [3316, '06:26'], [3322, '07:00'],
+          [3328, '07:34'], [3334, '08:08'], [3340, '08:42'], [3346, '09:16'],
+          [3352, '09:54'], [3358, '10:34'], [3364, '11:14'], [3370, '11:54'],
+          [3376, '12:34'], [3382, '13:14'], [3388, '13:54'], [3394, '14:34'],
+          [3400, '15:14'], [3406, '15:52'], [3412, '16:26'], [3418, '17:00'],
+          [3424, '17:34'], [3430, '18:08'], [3436, '18:42'], [3442, '19:22'],
+          [3446, '20:07'], [3450, '20:57'], [3454, '21:52'], [3458, '22:55']
+        ];
+        pushPairs(mitreRetiroToMitre, 'M-', mitreNorteLV, 35, 'MITRE', 'NORTE');
+        pushPairs(mitreMitreToRetiro, 'M-', mitreSurLV,   35, 'MITRE', 'SUR');
+
+        const tcStart = toMins('07:10');
+        for (let i = 0; i < 40; i++) {
+          const numN = 101 + i * 2;
+          const numS = 102 + i * 2;
+          const dep = Math.round(tcStart + i * 22.8);
+          costaMaipuToDelta.push({ id: `TC-${numN}`, code: `TC-${numN}`, line: 'COSTA', dir: 'NORTE', dep, arr: dep + 29, dur: 29 });
+          costaDeltaToMaipu.push({ id: `TC-${numS}`, code: `TC-${numS}`, line: 'COSTA', dir: 'SUR',   dep, arr: dep + 29, dur: 29 });
+        }
+      } else if (regime === 'saturday') {
+        const mitreNorteSab = [
+          [3303, '05:30'], [3309, '06:15'], [3315, '07:00'], [3321, '07:45'],
+          [3327, '08:30'], [3333, '09:15'], [3339, '10:00'], [3345, '10:45'],
+          [3351, '11:30'], [3357, '12:15'], [3363, '13:00'], [3369, '13:45'],
+          [3375, '14:30'], [3381, '15:15'], [3387, '16:00'], [3393, '16:45'],
+          [3399, '17:30'], [3405, '18:15'], [3411, '19:00'], [3417, '19:45'],
+          [3423, '20:30'], [3429, '21:15'], [3435, '22:05'], [3441, '23:00']
+        ];
+        const mitreSurSab = [
+          [3304, '05:20'], [3310, '06:05'], [3316, '06:50'], [3322, '07:35'],
+          [3328, '08:20'], [3334, '09:05'], [3340, '09:50'], [3346, '10:35'],
+          [3352, '11:20'], [3358, '12:05'], [3364, '12:50'], [3370, '13:35'],
+          [3376, '14:20'], [3382, '15:05'], [3388, '15:50'], [3394, '16:35'],
+          [3400, '17:20'], [3406, '18:05'], [3412, '18:50'], [3418, '19:35'],
+          [3424, '20:20'], [3430, '21:05'], [3436, '21:55'], [3442, '22:50']
+        ];
+        pushPairs(mitreRetiroToMitre, 'M-', mitreNorteSab, 35, 'MITRE', 'NORTE');
+        pushPairs(mitreMitreToRetiro, 'M-', mitreSurSab,   35, 'MITRE', 'SUR');
+
+        const tcStart = toMins('07:40');
+        for (let i = 0; i < 39; i++) {
+          const numN = 101 + i * 2;
+          const numS = 102 + i * 2;
+          const dep = Math.round(tcStart + i * 22.6);
+          costaMaipuToDelta.push({ id: `TC-${numN}`, code: `TC-${numN}`, line: 'COSTA', dir: 'NORTE', dep, arr: dep + 29, dur: 29 });
+          costaDeltaToMaipu.push({ id: `TC-${numS}`, code: `TC-${numS}`, line: 'COSTA', dir: 'SUR',   dep, arr: dep + 29, dur: 29 });
+        }
+      } else {
+        const mitreNorteDom = [
+          [3303, '06:00'], [3309, '06:50'], [3315, '07:40'], [3321, '08:30'],
+          [3327, '09:20'], [3333, '10:10'], [3339, '11:00'], [3345, '11:50'],
+          [3351, '12:40'], [3357, '13:30'], [3363, '14:20'], [3369, '15:10'],
+          [3375, '16:00'], [3381, '16:50'], [3387, '17:40'], [3393, '18:30'],
+          [3399, '19:20'], [3405, '20:10'], [3411, '21:00'], [3417, '21:55'],
+          [3423, '22:50']
+        ];
+        const mitreSurDom = [
+          [3304, '05:50'], [3310, '06:40'], [3316, '07:30'], [3322, '08:20'],
+          [3328, '09:10'], [3334, '10:00'], [3340, '10:50'], [3346, '11:40'],
+          [3352, '12:30'], [3358, '13:20'], [3364, '14:10'], [3370, '15:00'],
+          [3376, '15:50'], [3382, '16:40'], [3388, '17:30'], [3394, '18:20'],
+          [3400, '19:10'], [3406, '20:00'], [3412, '20:50'], [3418, '21:45'],
+          [3424, '22:40']
+        ];
+        pushPairs(mitreRetiroToMitre, 'M-', mitreNorteDom, 34, 'MITRE', 'NORTE');
+        pushPairs(mitreMitreToRetiro, 'M-', mitreSurDom,   34, 'MITRE', 'SUR');
+
+        const tcStart = toMins('08:10');
+        for (let i = 0; i < 39; i++) {
+          const numN = 101 + i * 2;
+          const numS = 102 + i * 2;
+          const dep = Math.round(tcStart + i * 21.8);
+          costaMaipuToDelta.push({ id: `TC-${numN}`, code: `TC-${numN}`, line: 'COSTA', dir: 'NORTE', dep, arr: dep + 29, dur: 29 });
+          costaDeltaToMaipu.push({ id: `TC-${numS}`, code: `TC-${numS}`, line: 'COSTA', dir: 'SUR',   dep, arr: dep + 29, dur: 29 });
+        }
+      }
+
+      return {
+        mitreRetiroToMitre,
+        mitreMitreToRetiro,
+        costaMaipuToDelta,
+        costaDeltaToMaipu,
+        allTrains: [...mitreRetiroToMitre, ...mitreMitreToRetiro, ...costaMaipuToDelta, ...costaDeltaToMaipu]
+      };
+    }
+
+    // 4. CLASIFICACIÓN EN 5 NIVELES
+    const STATUS_META = {
+      LOST:      { label: 'Se pierde',          short: 'Se pierde',  color: '#ef4444' },
+      TIGHT:     { label: 'Muy justa',          short: 'Muy justa',  color: '#f59e0b' },
+      OPTIMAL:   { label: 'Óptima',             short: 'Óptima',     color: '#10b981' },
+      EXCESSIVE: { label: 'Excesiva (>10m)',    short: 'Excesiva',   color: '#f97316' },
+      INVALID:   { label: 'No funciona (>20m)', short: 'No funciona',color: '#a855f7' }
+    };
+
+    function classifyTransfer(grossDiff, netMargin, effectiveWait) {
+      if (effectiveWait === null) return 'INVALID';
+      if (netMargin < 0) return 'LOST';
+      if (netMargin <= 2) return 'TIGHT';
+      if (effectiveWait <= 10) return 'OPTIMAL';
+      if (effectiveWait <= 20) return 'EXCESSIVE';
+      return 'INVALID';
+    }
+
+    function computeTransferEvents(schedule, walkMarginMin) {
+      const events = [];
+
+      schedule.costaDeltaToMaipu.forEach((tcTrain) => {
+        const arrNode = tcTrain.arr;
+        const immediateMitre = schedule.mitreMitreToRetiro.find((m) => m.dep >= arrNode);
+        if (!immediateMitre) {
+          events.push({
+            id: `SUR-${tcTrain.code}-NONE`, dir: 'SUR', nodeTime: arrNode,
+            inTrain: tcTrain.code, inOrigin: 'Delta', inStation: 'Av. Maipú',
+            outTime: null, outTrain: 'Sin servicio', outDest: 'Retiro', outStation: 'Bmé. Mitre',
+            grossDiff: 30, netMargin: 30 - walkMarginMin, status: 'INVALID',
+            catchableTrain: 'Sin servicio', catchableTime: null, effectiveWait: null
+          });
+          return;
+        }
+        const grossDiff = immediateMitre.dep - arrNode;
+        const netMargin = grossDiff - walkMarginMin;
+        const catchableMitre = schedule.mitreMitreToRetiro.find((m) => m.dep >= arrNode + walkMarginMin) || null;
+        const effectiveWait = catchableMitre ? (catchableMitre.dep - arrNode) : null;
+        events.push({
+          id: `SUR-${tcTrain.code}-${immediateMitre.code}`, dir: 'SUR', nodeTime: arrNode,
+          inTrain: tcTrain.code, inOrigin: 'Delta', inStation: 'Av. Maipú',
+          outTime: immediateMitre.dep, outTrain: immediateMitre.code, outDest: 'Retiro', outStation: 'Bmé. Mitre',
+          grossDiff, netMargin, status: classifyTransfer(grossDiff, netMargin, effectiveWait),
+          catchableTrain: catchableMitre ? catchableMitre.code : 'Sin tren posterior',
+          catchableTime: catchableMitre ? catchableMitre.dep : null,
+          effectiveWait
+        });
+      });
+
+      schedule.mitreRetiroToMitre.forEach((mTrain) => {
+        const arrNode = mTrain.arr;
+        const immediateCosta = schedule.costaMaipuToDelta.find((tc) => tc.dep >= arrNode);
+        if (!immediateCosta) {
+          events.push({
+            id: `NORTE-${mTrain.code}-NONE`, dir: 'NORTE', nodeTime: arrNode,
+            inTrain: mTrain.code, inOrigin: 'Retiro', inStation: 'Bmé. Mitre',
+            outTime: null, outTrain: 'TC cerrado', outDest: 'Delta', outStation: 'Av. Maipú',
+            grossDiff: 30, netMargin: 30 - walkMarginMin, status: 'INVALID',
+            catchableTrain: 'Sin servicio', catchableTime: null, effectiveWait: null
+          });
+          return;
+        }
+        const grossDiff = immediateCosta.dep - arrNode;
+        const netMargin = grossDiff - walkMarginMin;
+        const catchableCosta = schedule.costaMaipuToDelta.find((tc) => tc.dep >= arrNode + walkMarginMin) || null;
+        const effectiveWait = catchableCosta ? (catchableCosta.dep - arrNode) : null;
+        events.push({
+          id: `NORTE-${mTrain.code}-${immediateCosta.code}`, dir: 'NORTE', nodeTime: arrNode,
+          inTrain: mTrain.code, inOrigin: 'Retiro', inStation: 'Bmé. Mitre',
+          outTime: immediateCosta.dep, outTrain: immediateCosta.code, outDest: 'Delta', outStation: 'Av. Maipú',
+          grossDiff, netMargin, status: classifyTransfer(grossDiff, netMargin, effectiveWait),
+          catchableTrain: catchableCosta ? catchableCosta.code : 'Sin tren posterior',
+          catchableTime: catchableCosta ? catchableCosta.dep : null,
+          effectiveWait
+        });
+      });
+
+      events.sort((a, b) => a.nodeTime - b.nodeTime || a.dir.localeCompare(b.dir));
+      return events;
+    }
+
+    // 5. ESTADO GLOBAL
+    const SPEEDS = [60, 180, 360, 720];
+    const state = {
+      activeTab: 'map',
+      regime: 'weekday',
+      walkMargin: 5,
+      simMinutes: 450,
+      speedIdx: 1, // 180x
+      isPlaying: true,
+      basemap: 'esriSat',
+      mapDrawerOpen: false,
+      tableDir: 'ALL',
+      tableStatus: 'ALL',
+      tableMode: 'LIVE',
+      schedule: null,
+      events: [],
+      chartBarsMeta: { SUR: [], NORTE: [] }
+    };
+
+    function recomputeData() {
+      state.schedule = buildServicesForRegime(state.regime);
+      state.events = computeTransferEvents(state.schedule, state.walkMargin);
+      updateDailyKPIs();
+    }
+
+    // 6. MAPA LEAFLET (SATÉLITE ESRI POR DEFECTO + ARGENMAP IGN CON {-y})
+    let leafletMap = null;
+    let esriBaseLayer = null;
+    let ignBaseLayer = null;
+    let trainsLayerGroup = null;
+    let trainMarkersById = {};
+
+    const BASEMAP_PROVIDERS = {
+      esriSat: {
+        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        options: { maxZoom: 18, attribution: 'Tiles &copy; Esri' }
+      },
+      ignArgenmap: {
+        url: 'https://wms.ign.gob.ar/geoserver/gwc/service/tms/1.0.0/capabaseargenmap@EPSG%3A3857@png/{z}/{x}/{-y}.png',
+        options: { maxZoom: 18, attribution: 'IGN Argentina - Argenmap' }
+      }
+    };
+
+    function applyBasemapContrastTheme(key) {
+      const isArgenmap = key === 'ignArgenmap';
+      const wrapper = document.getElementById('map-wrapper');
+      const card = document.getElementById('bridge-floating-card');
+      const title = document.getElementById('bridge-floating-title');
+      const desc = document.getElementById('bridge-floating-desc');
+
+      if (wrapper) wrapper.classList.toggle('argenmap-contrast', isArgenmap);
+      if (card && title && desc) {
+        if (isArgenmap) {
+          card.className = 'absolute top-14 left-2.5 z-[500] bg-[#0b1120] border-2 border-[#fbbf24] rounded-xl px-2.5 py-1.5 max-w-[235px] pointer-events-none shadow-[0_8px_24px_rgba(0,0,0,0.9)] transition-all duration-200';
+          title.className = 'flex items-center gap-1.5 text-[10.5px] font-extrabold text-[#fbbf24] leading-tight';
+          desc.className = 'text-[9.5px] text-white mt-0.5';
+        } else {
+          card.className = 'absolute top-14 left-2.5 z-[500] bg-slate-950/88 backdrop-blur-md border border-amber-500/45 rounded-xl px-2.5 py-1.5 max-w-[235px] pointer-events-none shadow-xl transition-all duration-200';
+          title.className = 'flex items-center gap-1.5 text-[10.5px] font-extrabold text-amber-300 leading-tight';
+          desc.className = 'text-[9.5px] text-slate-300 mt-0.5';
+        }
+      }
+
+      const selTop = document.getElementById('basemap-select-top');
+      if (selTop && selTop.value !== key) selTop.value = key;
+
+      document.querySelectorAll('.basemap-opt-btn').forEach((btn) => {
+        const active = btn.dataset.basemapBtn === key;
+        btn.className = active
+          ? 'basemap-opt-btn min-h-[44px] px-3 rounded-xl text-xs font-extrabold bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 cursor-pointer'
+          : 'basemap-opt-btn min-h-[44px] px-3 rounded-xl text-xs font-bold bg-slate-950 text-slate-300 border border-slate-800 cursor-pointer';
+      });
+    }
+
+    function setLeafletBasemap(key) {
+      if (!leafletMap || !esriBaseLayer || !ignBaseLayer) return;
+      const validKey = BASEMAP_PROVIDERS[key] ? key : 'esriSat';
+      state.basemap = validKey;
+      const target = validKey === 'ignArgenmap' ? ignBaseLayer : esriBaseLayer;
+      const other = validKey === 'ignArgenmap' ? esriBaseLayer : ignBaseLayer;
+
+      if (leafletMap.hasLayer(other)) leafletMap.removeLayer(other);
+      if (!leafletMap.hasLayer(target)) target.addTo(leafletMap);
+      applyBasemapContrastTheme(validKey);
+    }
+
+    function initLeafletMap() {
+      const mapEl = document.getElementById('leaflet-map');
+      if (!mapEl || typeof L === 'undefined') return;
+
+      leafletMap = L.map('leaflet-map', { zoomControl: true, preferCanvas: true });
+      esriBaseLayer = L.tileLayer(BASEMAP_PROVIDERS.esriSat.url, BASEMAP_PROVIDERS.esriSat.options);
+      ignBaseLayer = L.tileLayer(BASEMAP_PROVIDERS.ignArgenmap.url, BASEMAP_PROVIDERS.ignArgenmap.options);
+
+      esriBaseLayer.addTo(leafletMap);
+      applyBasemapContrastTheme('esriSat');
+
+      L.control.layers(
+        { 'Satélite Esri': esriBaseLayer, 'Argenmap (IGN)': ignBaseLayer },
+        null,
+        { position: 'bottomright' }
+      ).addTo(leafletMap);
+
+      leafletMap.on('baselayerchange', (e) => {
+        const k = e.name === 'Argenmap (IGN)' ? 'ignArgenmap' : 'esriSat';
+        state.basemap = k;
+        applyBasemapContrastTheme(k);
+      });
+
+      const routesLayer = L.layerGroup().addTo(leafletMap);
+      const stationsLayer = L.layerGroup().addTo(leafletMap);
+      trainsLayerGroup = L.layerGroup().addTo(leafletMap);
+
+      const mitreCoords = MITRE_STATIONS.map((s) => [s.lat, s.lon]);
+      const costaCoords = COSTA_STATIONS.map((s) => [s.lat, s.lon]);
+      const bridgeCoords = [
+        [MITRE_STATIONS[10].lat, MITRE_STATIONS[10].lon],
+        [COSTA_STATIONS[0].lat, COSTA_STATIONS[0].lon]
+      ];
+
+      L.polyline(mitreCoords, { color: '#020617', weight: 7, opacity: 0.85 }).addTo(routesLayer);
+      L.polyline(mitreCoords, { color: '#38bdf8', weight: 3.8, opacity: 0.95 }).addTo(routesLayer);
+
+      L.polyline(costaCoords, { color: '#020617', weight: 7, opacity: 0.85 }).addTo(routesLayer);
+      L.polyline(costaCoords, { color: '#10b981', weight: 3.8, opacity: 0.95 }).addTo(routesLayer);
+
+      L.polyline(bridgeCoords, { color: '#f59e0b', weight: 5, opacity: 1, dashArray: '5, 5' }).addTo(routesLayer);
+      L.circle([-34.52505, -58.48795], {
+        radius: 260,
+        color: '#f59e0b',
+        weight: 1.5,
+        fillColor: '#f59e0b',
+        fillOpacity: 0.14
+      }).addTo(routesLayer);
+
+      function addStations(list, lineColor, side) {
+        list.forEach((st) => {
+          const isNode = Boolean(st.node);
+          const isTerm = Boolean(st.terminal);
+          const marker = L.circleMarker([st.lat, st.lon], {
+            radius: isNode ? 7 : (isTerm ? 5.5 : 3.8),
+            color: '#020617',
+            weight: 2,
+            fillColor: isNode ? '#f59e0b' : lineColor,
+            fillOpacity: 1
+          });
+          const lblClass = isNode ? 'station-label-node' : (isTerm ? 'station-label-terminal' : 'station-label-minor');
+          marker.bindTooltip(st.name, {
+            permanent: true,
+            direction: side === 'left' ? 'left' : 'right',
+            offset: side === 'left' ? [-9, 0] : [9, 0],
+            className: lblClass
+          });
+          marker.addTo(stationsLayer);
+        });
+      }
+
+      addStations(MITRE_STATIONS, '#38bdf8', 'left');
+      addStations(COSTA_STATIONS, '#10b981', 'right');
+
+      const allBounds = L.latLngBounds([...mitreCoords, ...costaCoords]);
+      leafletMap.fitBounds(allBounds, { padding: [32, 32] });
+
+      function syncZoomLabels() {
+        leafletMap.getContainer().classList.toggle('hide-minor-labels', leafletMap.getZoom() < 13);
+      }
+      leafletMap.on('zoomend', syncZoomLabels);
+      syncZoomLabels();
+
+      setTimeout(() => leafletMap.invalidateSize(), 150);
+    }
+
+    function interpolateAlongStations(stations, cumRatios, progress, dir) {
+      const p = Math.max(0, Math.min(1, progress));
+      const effP = dir === 'NORTE' ? p : (1 - p);
+      let segIdx = 0;
+      for (let i = 0; i < cumRatios.length - 1; i++) {
+        if (effP >= cumRatios[i] && effP <= cumRatios[i + 1]) { segIdx = i; break; }
+      }
+      const r0 = cumRatios[segIdx], r1 = cumRatios[segIdx + 1];
+      const localT = r1 > r0 ? (effP - r0) / (r1 - r0) : 0;
+      const stA = stations[segIdx], stB = stations[segIdx + 1];
+      const lat = stA.lat + (stB.lat - stA.lat) * localT;
+      const lon = stA.lon + (stB.lon - stA.lon) * localT;
+
+      const dLat = stB.lat - stA.lat, dLon = stB.lon - stA.lon;
+      const norm = Math.hypot(dLat, dLon) || 1;
+      const perpLat = (-dLon / norm) * 0.0005 * (dir === 'NORTE' ? 1 : -1);
+      const perpLon = (dLat / norm) * 0.0005 * (dir === 'NORTE' ? 1 : -1);
+      const headingDeg = (Math.atan2(dir === 'NORTE' ? dLon : -dLon, dir === 'NORTE' ? dLat : -dLat) * 180) / Math.PI;
+      return {
+        lat: lat + perpLat,
+        lon: lon + perpLon,
+        headingDeg,
+        fromSt: dir === 'NORTE' ? stA.name : stB.name,
+        toSt: dir === 'NORTE' ? stB.name : stA.name
+      };
+    }
+
+    function updateLeafletTrains() {
+      if (!leafletMap || !trainsLayerGroup) return;
+      const nowM = ((state.simMinutes % 1440) + 1440) % 1440;
+      const activeIds = new Set();
+
+      state.schedule.allTrains.forEach((tr) => {
+        if (nowM >= tr.dep && nowM <= tr.arr) {
+          activeIds.add(tr.id);
+          const isMitre = tr.line === 'MITRE';
+          const interp = interpolateAlongStations(
+            isMitre ? MITRE_STATIONS : COSTA_STATIONS,
+            isMitre ? MITRE_CUM_RATIOS : COSTA_CUM_RATIOS,
+            (nowM - tr.dep) / tr.dur,
+            tr.dir
+          );
+          const bgHex = isMitre ? '#0284c7' : '#059669';
+          const tip = `<strong>${tr.code}</strong> · ${interp.fromSt} → ${interp.toSt} (${formatHHMM(tr.dep)}–${formatHHMM(tr.arr)})`;
+
+          if (trainMarkersById[tr.id]) {
+            trainMarkersById[tr.id].setLatLng([interp.lat, interp.lon]);
+            const el = trainMarkersById[tr.id].getElement();
+            if (el) {
+              const badge = el.querySelector('.train-marker-badge');
+              if (badge) badge.style.transform = `rotate(${interp.headingDeg.toFixed(1)}deg)`;
+            }
+            trainMarkersById[tr.id].setTooltipContent(tip);
+          } else {
+            const icon = L.divIcon({
+              className: '',
+              iconSize: [22, 22],
+              iconAnchor: [11, 11],
+              html: `<div class="train-marker-badge" style="background:${bgHex};transform:rotate(${interp.headingDeg.toFixed(1)}deg);">
+                <svg width="10" height="10" viewBox="0 0 12 12" fill="none"><path d="M6 1L10.5 10.5L6 8.2L1.5 10.5L6 1Z" fill="#ffffff"/></svg>
+              </div>`
+            });
+            trainMarkersById[tr.id] = L.marker([interp.lat, interp.lon], { icon })
+              .bindTooltip(tip, { direction: 'top', offset: [0, -11] })
+              .addTo(trainsLayerGroup);
+          }
+        }
+      });
+
+      Object.keys(trainMarkersById).forEach((id) => {
+        if (!activeIds.has(id)) {
+          trainsLayerGroup.removeLayer(trainMarkersById[id]);
+          delete trainMarkersById[id];
+        }
+      });
+    }
+
+    // 7. CONTADORES EN VIVO Y KPIs
+    function applyStatusBadge(el, status) {
+      const styles = {
+        OPTIMAL:   { text: 'Óptima',             cls: 'px-2 py-0.5 rounded-lg text-[10.5px] font-extrabold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shrink-0' },
+        TIGHT:     { text: 'Muy justa',          cls: 'px-2 py-0.5 rounded-lg text-[10.5px] font-extrabold bg-amber-500/20 text-amber-300 border border-amber-500/40 shrink-0' },
+        LOST:      { text: 'Se pierde',          cls: 'px-2 py-0.5 rounded-lg text-[10.5px] font-extrabold bg-rose-500/20 text-rose-300 border border-rose-500/40 shrink-0' },
+        EXCESSIVE: { text: 'Excesiva (>10m)',    cls: 'px-2 py-0.5 rounded-lg text-[10.5px] font-extrabold bg-orange-500/20 text-orange-300 border border-orange-500/40 shrink-0' },
+        INVALID:   { text: 'No funciona (>20m)', cls: 'px-2 py-0.5 rounded-lg text-[10.5px] font-extrabold bg-purple-500/20 text-purple-300 border border-purple-500/40 shrink-0' }
+      };
+      const cfg = styles[status] || styles.INVALID;
+      el.textContent = cfg.text;
+      el.className = cfg.cls;
+    }
+
+    function updateDailyKPIs() {
+      ['SUR', 'NORTE'].forEach((dir) => {
+        const prefix = dir === 'SUR' ? 'sur' : 'norte';
+        const list = state.events.filter((e) => e.dir === dir);
+        const mobCnt = document.getElementById(`mob-chart-${prefix}-count`);
+        const deskCnt = document.getElementById(`desk-chart-${prefix}-count`);
+        if (mobCnt) mobCnt.textContent = `${list.length} arribos`;
+        if (deskCnt) deskCnt.textContent = `${list.length} arribos`;
+        if (!list.length) return;
+
+        const validGross = list.filter((e) => e.outTime !== null).map((e) => e.grossDiff);
+        const avgGross = validGross.length ? validGross.reduce((a, b) => a + b, 0) / validGross.length : 0;
+        const minGross = validGross.length ? Math.min(...validGross) : 0;
+        const maxGross = validGross.length ? Math.max(...validGross) : 0;
+        const viableCount = list.filter((e) => e.status === 'OPTIMAL' || e.status === 'TIGHT' || e.status === 'EXCESSIVE').length;
+        const okPct = Math.round((viableCount / list.length) * 100);
+        const effVals = list.filter((e) => e.effectiveWait !== null).map((e) => e.effectiveWait);
+        const avgEff = effVals.length ? effVals.reduce((a, b) => a + b, 0) / effVals.length : 0;
+
+        document.getElementById(`${prefix}-kpi-avg`).textContent = `${avgGross.toFixed(1)} m`;
+        document.getElementById(`${prefix}-kpi-minmax`).textContent = `${minGross}/${maxGross}m`;
+        document.getElementById(`${prefix}-kpi-ok`).textContent = `${okPct}%`;
+        document.getElementById(`${prefix}-kpi-eff`).textContent = `${avgEff.toFixed(1)} m`;
+      });
+    }
+
+    function updateLiveTransferCards() {
+      const nowM = ((state.simMinutes % 1440) + 1440) % 1440;
+      const summaryPills = { SUR: '--', NORTE: '--' };
+
+      ['SUR', 'NORTE'].forEach((dir) => {
+        const prefix = dir === 'SUR' ? 'sur' : 'norte';
+        const list = state.events.filter((e) => e.dir === dir);
+
+        let currentEv = list.find((e) => {
+          const endW = e.catchableTime !== null ? e.catchableTime : (e.outTime !== null ? e.outTime : e.nodeTime + 15);
+          return nowM >= e.nodeTime - 3 && nowM <= endW;
+        });
+        let isUpcoming = false;
+        if (!currentEv) {
+          currentEv = list.find((e) => e.nodeTime >= nowM);
+          isUpcoming = true;
+        }
+
+        const badgeEl = document.getElementById(`${prefix}-status-badge`);
+        const miniBadgeEl = document.getElementById(`mini-${prefix}-badge`);
+        const miniTimesEl = document.getElementById(`mini-${prefix}-times`);
+        const miniWaitEl = document.getElementById(`mini-${prefix}-wait`);
+
+        if (!currentEv) {
+          applyStatusBadge(badgeEl, 'INVALID');
+          document.getElementById(`${prefix}-arr-time`).textContent = '--:--';
+          document.getElementById(`${prefix}-arr-train`).textContent = 'Fin jornada';
+          document.getElementById(`${prefix}-diff-min`).textContent = '-- min';
+          document.getElementById(`${prefix}-net-margin`).textContent = 'Sin servicio';
+          document.getElementById(`${prefix}-dep-time`).textContent = '--:--';
+          document.getElementById(`${prefix}-dep-train`).textContent = 'Mañana';
+          document.getElementById(`${prefix}-countdown-text`).textContent = 'Jornada finalizada.';
+          document.getElementById(`${prefix}-effective-pill`).textContent = 'Espera ef.: --';
+          if (miniBadgeEl) miniBadgeEl.textContent = 'Fin';
+          if (miniTimesEl) miniTimesEl.textContent = '--:-- → --:--';
+          if (miniWaitEl) miniWaitEl.textContent = 'Sin servicio';
+          return;
+        }
+
+        applyStatusBadge(badgeEl, currentEv.status);
+        document.getElementById(`${prefix}-arr-time`).textContent = formatHHMM(currentEv.nodeTime);
+        document.getElementById(`${prefix}-arr-train`).textContent = `${currentEv.inTrain}`;
+
+        if (currentEv.outTime === null) {
+          document.getElementById(`${prefix}-diff-min`).textContent = '>20 min';
+          document.getElementById(`${prefix}-net-margin`).textContent = 'Sin enlace';
+          document.getElementById(`${prefix}-dep-time`).textContent = '--:--';
+          document.getElementById(`${prefix}-dep-train`).textContent = currentEv.outTrain;
+        } else {
+          document.getElementById(`${prefix}-diff-min`).textContent = `${currentEv.grossDiff} min`;
+          document.getElementById(`${prefix}-net-margin`).textContent = `Neto: ${currentEv.netMargin >= 0 ? '+' : ''}${currentEv.netMargin}m`;
+          document.getElementById(`${prefix}-dep-time`).textContent = formatHHMM(currentEv.outTime);
+          document.getElementById(`${prefix}-dep-train`).textContent = currentEv.outTrain;
+        }
+
+        const cdEl = document.getElementById(`${prefix}-countdown-text`);
+        if (isUpcoming) {
+          const mArr = Math.max(0, Math.ceil(currentEv.nodeTime - nowM));
+          cdEl.innerHTML = `Arribo en <strong class="text-white font-mono">${mArr} min</strong>`;
+        } else if (currentEv.status === 'LOST') {
+          cdEl.innerHTML = currentEv.catchableTime !== null
+            ? `<span class="text-rose-300 font-semibold">Se pierde</span> → Sig.: <strong class="text-white font-mono">${currentEv.catchableTrain} (${formatHHMM(currentEv.catchableTime)})</strong>`
+            : `<span class="text-rose-300 font-semibold">Se pierde último tren</span>`;
+        } else if (currentEv.status === 'INVALID') {
+          cdEl.innerHTML = `<span class="text-purple-300 font-semibold">No funciona (&gt;20 min)</span>`;
+        } else {
+          const mDep = Math.max(0, Math.ceil(currentEv.outTime - nowM));
+          cdEl.innerHTML = `En nodo · Sale en <strong class="text-amber-300 font-mono">${mDep} min</strong>`;
+        }
+
+        const effText = currentEv.effectiveWait !== null ? `${currentEv.effectiveWait}m` : '>20m';
+        document.getElementById(`${prefix}-effective-pill`).textContent = `Espera ef.: ${effText}`;
+        summaryPills[dir] = effText;
+
+        if (miniBadgeEl && miniTimesEl && miniWaitEl) {
+          miniBadgeEl.textContent = STATUS_META[currentEv.status]?.short || 'N/D';
+          miniBadgeEl.style.color = STATUS_META[currentEv.status]?.color || '#cbd5e1';
+          miniTimesEl.textContent = `${formatHHMM(currentEv.nodeTime)} → ${currentEv.outTime !== null ? formatHHMM(currentEv.outTime) : '--:--'}`;
+          miniWaitEl.textContent = `Bruta: ${currentEv.outTime !== null ? currentEv.grossDiff + 'm' : '--'} · Ef.: ${effText}`;
+        }
+      });
+
+      const pillsEl = document.getElementById('drawer-summary-pills');
+      if (pillsEl) {
+        pillsEl.innerHTML = `
+          <span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300">Sur: ${summaryPills.SUR}</span>
+          <span class="px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300">Norte: ${summaryPills.NORTE}</span>
+        `;
+      }
+    }
+
+    // 8. GRÁFICOS DE BARRAS DE 24 HORAS (MÓVIL + ESCRITORIO)
+    function drawChartOnCanvas(dir, canvasId) {
+      const canvas = document.getElementById(canvasId);
+      if (!canvas) return;
+      const rect = canvas.parentElement.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return;
+
+      const dpr = window.devicePixelRatio || 1;
+      const w = Math.floor(rect.width);
+      const h = Math.floor(rect.height);
+      if (canvas.width !== w * dpr || canvas.height !== h * dpr) {
+        canvas.width = w * dpr;
+        canvas.height = h * dpr;
+      }
+
+      const ctx = canvas.getContext('2d');
+      ctx.save();
+      ctx.scale(dpr, dpr);
+      ctx.clearRect(0, 0, w, h);
+
+      const dirEvents = state.events.filter((e) => e.dir === dir);
+      const padL = 30, padR = 8, padT = 10, padB = 18;
+      const plotW = Math.max(40, w - padL - padR);
+      const plotH = Math.max(30, h - padT - padB);
+      const yMax = 35;
+
+      const xForMin = (m) => padL + ((m - 300) / (1440 - 300)) * plotW;
+      const yForVal = (v) => padT + plotH - (Math.min(yMax, Math.max(0, v)) / yMax) * plotH;
+
+      ctx.font = '600 9px JetBrains Mono, monospace';
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'middle';
+      [0, 10, 20, 30].forEach((v) => {
+        const y = Math.round(yForVal(v)) + 0.5;
+        ctx.strokeStyle = 'rgba(51, 65, 85, 0.45)';
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + plotW, y); ctx.stroke();
+        ctx.fillStyle = v === 10 ? '#fb923c' : (v === 20 ? '#c084fc' : '#64748b');
+        ctx.fillText(`${v}m`, padL - 4, y);
+      });
+
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      for (let hr = 6; hr <= 23; hr += 3) {
+        const x = xForMin(hr * 60);
+        ctx.fillStyle = '#64748b';
+        ctx.fillText(`${String(hr).padStart(2, '0')}h`, x, padT + plotH + 4);
+      }
+
+      // Umbrales 10m y 20m
+      [
+        { val: 10, color: '#f97316' },
+        { val: 20, color: '#a855f7' }
+      ].forEach((thr) => {
+        const yt = Math.round(yForVal(thr.val)) + 0.5;
+        ctx.save();
+        ctx.setLineDash([4, 3]);
+        ctx.strokeStyle = thr.color;
+        ctx.lineWidth = 1.3;
+        ctx.beginPath(); ctx.moveTo(padL, yt); ctx.lineTo(padL + plotW, yt); ctx.stroke();
+        ctx.restore();
+      });
+
+      const barW = Math.max(3.5, Math.min(10, (plotW / Math.max(1, dirEvents.length)) * 0.65));
+      const barsMeta = [];
+      const nowM = ((state.simMinutes % 1440) + 1440) % 1440;
+
+      dirEvents.forEach((ev) => {
+        if (ev.nodeTime < 300) return;
+        const cx = xForMin(ev.nodeTime);
+        const val = ev.effectiveWait !== null ? ev.effectiveWait : 32;
+        const yTop = yForVal(val);
+        const bh = Math.max(3, yForVal(0) - yTop);
+        ctx.fillStyle = STATUS_META[ev.status]?.color || '#a855f7';
+        ctx.globalAlpha = ev.nodeTime <= nowM ? 0.96 : 0.36;
+        ctx.beginPath();
+        ctx.roundRect(cx - barW / 2, yTop, barW, bh, [2, 2, 0, 0]);
+        ctx.fill();
+
+        barsMeta.push({ x: cx - barW / 2 - 4, y: padT, w: barW + 8, h: plotH, event: ev });
+      });
+
+      ctx.globalAlpha = 1;
+      state.chartBarsMeta[dir] = barsMeta;
+
+      if (nowM >= 300) {
+        const curX = xForMin(nowM);
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 1.8;
+        ctx.beginPath(); ctx.moveTo(curX, padT - 2); ctx.lineTo(curX, padT + plotH); ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function drawAllVisibleCharts() {
+      drawChartOnCanvas('SUR', 'mob-wait-chart-sur');
+      drawChartOnCanvas('NORTE', 'mob-wait-chart-norte');
+      drawChartOnCanvas('SUR', 'desk-wait-chart-sur');
+      drawChartOnCanvas('NORTE', 'desk-wait-chart-norte');
+    }
+
+    // 9. TABLA ACUMULADA
+    let lastTableSig = '';
+    function renderAccumulatedTable(force = false) {
+      const nowM = Math.floor(((state.simMinutes % 1440) + 1440) % 1440);
+      const sig = `${state.regime}|${state.walkMargin}|${state.tableDir}|${state.tableStatus}|${state.tableMode}|${state.tableMode === 'LIVE' ? nowM : 'FULL'}`;
+      if (!force && sig === lastTableSig) return;
+      lastTableSig = sig;
+
+      document.getElementById('table-scope-badge').textContent = state.tableMode === 'LIVE'
+        ? `Hasta ${formatHHMM(nowM)}`
+        : 'Día 24h';
+
+      const filtered = state.events.filter((ev) => {
+        if (state.tableDir !== 'ALL' && ev.dir !== state.tableDir) return false;
+        if (state.tableStatus !== 'ALL' && ev.status !== state.tableStatus) return false;
+        if (state.tableMode === 'LIVE' && ev.nodeTime > nowM) return false;
+        return true;
+      });
+
+      let cumGross = 0, cumEff = 0, surC = 0, norteC = 0, lostC = 0, tightC = 0, excC = 0, invC = 0;
+      const tbody = document.getElementById('accumulated-table-body');
+      const tfoot = document.getElementById('accumulated-table-foot');
+
+      if (!filtered.length) {
+        tbody.innerHTML = `<tr><td colspan="8" class="py-8 px-4 text-center text-slate-400">No hay eventos hasta las <strong class="font-mono text-white">${formatHHMM(nowM)}</strong>.</td></tr>`;
+        tfoot.innerHTML = '';
+      } else {
+        let html = '';
+        filtered.forEach((ev, idx) => {
+          const gVal = ev.outTime !== null ? ev.grossDiff : 0;
+          const eVal = ev.effectiveWait !== null ? ev.effectiveWait : 0;
+          cumGross += gVal;
+          cumEff += eVal;
+          if (ev.dir === 'SUR') surC++; else norteC++;
+          if (ev.status === 'LOST') lostC++;
+          else if (ev.status === 'TIGHT') tightC++;
+          else if (ev.status === 'EXCESSIVE') excC++;
+          else if (ev.status === 'INVALID') invC++;
+
+          const dirBadge = ev.dir === 'SUR'
+            ? `<span class="px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 font-bold text-[10px]">Sur</span>`
+            : `<span class="px-1.5 py-0.5 rounded bg-sky-500/15 text-sky-300 font-bold text-[10px]">Norte</span>`;
+
+          const stBadges = {
+            OPTIMAL:   `<span class="px-1.5 py-0.5 rounded-full text-[9.5px] font-bold bg-emerald-500/20 text-emerald-300">Óptima</span>`,
+            TIGHT:     `<span class="px-1.5 py-0.5 rounded-full text-[9.5px] font-bold bg-amber-500/20 text-amber-300">Justa</span>`,
+            LOST:      `<span class="px-1.5 py-0.5 rounded-full text-[9.5px] font-bold bg-rose-500/20 text-rose-300">Pierde</span>`,
+            EXCESSIVE: `<span class="px-1.5 py-0.5 rounded-full text-[9.5px] font-bold bg-orange-500/20 text-orange-300">&gt;10m</span>`,
+            INVALID:   `<span class="px-1.5 py-0.5 rounded-full text-[9.5px] font-bold bg-purple-500/20 text-purple-300">&gt;20m</span>`
+          };
+
+          html += `
+            <tr onclick="window.jumpToMinute(${ev.nodeTime})" class="active:bg-sky-500/20 hover:bg-slate-800/50 cursor-pointer">
+              <td class="py-2.5 px-2.5 font-mono text-slate-400">${idx + 1}</td>
+              <td class="py-2.5 px-2.5">${dirBadge}</td>
+              <td class="py-2.5 px-2.5 font-mono">
+                <strong class="text-white">${formatHHMM(ev.nodeTime)}</strong>
+                <span class="block text-[9.5px] text-slate-400">${ev.inTrain}</span>
+              </td>
+              <td class="py-2.5 px-2.5 font-mono">
+                <strong class="text-white">${ev.outTime !== null ? formatHHMM(ev.outTime) : '--:--'}</strong>
+                <span class="block text-[9.5px] text-slate-400">${ev.outTrain}</span>
+              </td>
+              <td class="py-2.5 px-2.5 text-right font-mono font-bold text-white">${ev.outTime !== null ? ev.grossDiff + 'm' : '--'}</td>
+              <td class="py-2.5 px-2.5 text-center">${stBadges[ev.status]}</td>
+              <td class="py-2.5 px-2.5 text-right font-mono text-slate-200">${ev.effectiveWait !== null ? ev.effectiveWait + 'm' : '--'}</td>
+              <td class="py-2.5 px-2.5 text-right font-mono font-extrabold text-sky-300 bg-sky-950/30">
+                ${cumGross}m
+                <span class="block text-[9.5px] font-normal text-sky-400/80">${formatDurationHHMM(cumGross)}h</span>
+              </td>
+            </tr>
+          `;
+        });
+        tbody.innerHTML = html;
+        tfoot.innerHTML = `
+          <tr>
+            <td colspan="4" class="py-2.5 px-2.5 text-right text-[10.5px] uppercase text-slate-300">Total (${filtered.length}):</td>
+            <td class="py-2.5 px-2.5 text-right font-mono text-white">${cumGross}m</td>
+            <td class="py-2.5 px-2.5 text-center text-[9.5px] text-slate-400">${lostC}p · ${excC}e</td>
+            <td class="py-2.5 px-2.5 text-right font-mono text-emerald-300">${cumEff}m</td>
+            <td class="py-2.5 px-2.5 text-right font-mono text-sky-300 bg-sky-950/50">${formatDurationHHMM(cumGross)}h</td>
+          </tr>
+        `;
+      }
+
+      document.getElementById('acc-kpi-count').textContent = filtered.length;
+      document.getElementById('acc-kpi-split').textContent = `${surC} Sur · ${norteC} Norte`;
+      document.getElementById('acc-kpi-bruta').textContent = `${cumGross.toLocaleString('es-AR')} min`;
+      document.getElementById('acc-kpi-bruta-hs').textContent = `(${formatDurationHHMM(cumGross)} h)`;
+      document.getElementById('acc-kpi-efectiva').textContent = `${cumEff.toLocaleString('es-AR')} min`;
+      document.getElementById('acc-kpi-avg').textContent = `Prom: ${(filtered.length ? cumEff / filtered.length : 0).toFixed(1)} m`;
+      document.getElementById('acc-kpi-bad').textContent = `${lostC} / ${excC} / ${invC}`;
+      document.getElementById('acc-kpi-tight').textContent = `${tightC} muy justas`;
+    }
+
+    // 10. NAVEGACIÓN POR PESTAÑAS MÓVILES Y BUCLE DE ANIMACIÓN
+    function switchMobileTab(tabName) {
+      state.activeTab = tabName;
+      const mapEl = document.getElementById('tab-view-map');
+      const trEl = document.getElementById('tab-view-transfers');
+      const accEl = document.getElementById('tab-view-accumulated');
+      const setEl = document.getElementById('tab-view-settings');
+
+      // En móvil (<1024px) alternamos visibilidad; en desktop (lg:) Tailwind fuerza visibilidad
+      [
+        { name: 'map', el: mapEl, disp: 'block' },
+        { name: 'transfers', el: trEl, disp: 'flex' },
+        { name: 'accumulated', el: accEl, disp: 'block' },
+        { name: 'settings', el: setEl, disp: 'block' }
+      ].forEach((item) => {
+        if (item.name === tabName) {
+          item.el.classList.remove('hidden');
+          item.el.classList.add(item.disp);
+        } else {
+          item.el.classList.add('hidden');
+          item.el.classList.remove('block', 'flex');
+        }
+      });
+
+      document.querySelectorAll('.bottom-tab-btn').forEach((btn) => {
+        const isAct = btn.dataset.tab === tabName;
+        btn.className = isAct
+          ? 'bottom-tab-btn min-h-[48px] rounded-xl flex flex-col items-center justify-center gap-0.5 text-sky-400 bg-sky-500/15 font-extrabold transition cursor-pointer'
+          : 'bottom-tab-btn min-h-[48px] rounded-xl flex flex-col items-center justify-center gap-0.5 text-slate-400 font-semibold transition cursor-pointer';
+      });
+
+      if (tabName === 'map' && leafletMap) {
+        setTimeout(() => leafletMap.invalidateSize(), 60);
+      }
+      if (tabName === 'transfers') {
+        setTimeout(() => drawAllVisibleCharts(), 40);
+      }
+      if (tabName === 'accumulated') {
+        renderAccumulatedTable(true);
+      }
+    }
+
+    function getShortPeriod(mins) {
+      const h = Math.floor(mins / 60);
+      if (h < 6) return 'Madrugada';
+      if (h < 10) return 'Pico Mañana';
+      if (h < 16) return 'Valle Diurno';
+      if (h < 20) return 'Pico Tarde';
+      return 'Nocturno';
+    }
+
+    function renderAllFrames(forceTable = false) {
+      const norm = ((state.simMinutes % 1440) + 1440) % 1440;
+      document.getElementById('sim-clock').textContent = formatHHMM(norm);
+      document.getElementById('sim-period-short').textContent = getShortPeriod(norm);
+      document.getElementById('time-scrubber').value = Math.floor(norm);
+
+      updateLeafletTrains();
+      updateLiveTransferCards();
+      drawAllVisibleCharts();
+      renderAccumulatedTable(forceTable);
+    }
+
+    window.jumpToMinute = function(targetMin) {
+      state.simMinutes = targetMin;
+      renderAllFrames(true);
+      if (window.innerWidth < 1024 && state.activeTab === 'accumulated') {
+        switchMobileTab('transfers');
+      }
+    };
+
+    let lastTs = performance.now();
+    function animationLoop(nowTs) {
+      const dtSec = Math.min(0.1, (nowTs - lastTs) / 1000);
+      lastTs = nowTs;
+      if (state.isPlaying) {
+        const spd = SPEEDS[state.speedIdx];
+        state.simMinutes = (state.simMinutes + dtSec * (spd / 60)) % 1440;
+        renderAllFrames(false);
+      }
+      requestAnimationFrame(animationLoop);
+    }
+
+    window.addEventListener('load', () => {
+      initLeafletMap();
+      recomputeData();
+
+      // Navegación inferior móvil
+      document.querySelectorAll('.bottom-tab-btn').forEach((btn) => {
+        btn.addEventListener('click', () => switchMobileTab(btn.dataset.tab));
+      });
+
+      // Cajón desplegable de trasbordos sobre el mapa móvil
+      document.getElementById('btn-toggle-map-drawer').addEventListener('click', () => {
+        state.mapDrawerOpen = !state.mapDrawerOpen;
+        document.getElementById('map-drawer-body').classList.toggle('hidden', !state.mapDrawerOpen);
+        document.getElementById('drawer-chevron').textContent = state.mapDrawerOpen ? '▼ Ocultar' : '▲ Ver';
+      });
+
+      // Play / Pausa
+      document.getElementById('btn-play-pause').addEventListener('click', () => {
+        state.isPlaying = !state.isPlaying;
+        document.getElementById('icon-pause').classList.toggle('hidden', !state.isPlaying);
+        document.getElementById('icon-play').classList.toggle('hidden', state.isPlaying);
+      });
+
+      // Velocidad cíclica
+      document.getElementById('btn-speed-cycle').addEventListener('click', () => {
+        state.speedIdx = (state.speedIdx + 1) % SPEEDS.length;
+        document.getElementById('speed-label').textContent = `${SPEEDS[state.speedIdx]}x`;
+      });
+
+      // Línea de tiempo
+      document.getElementById('time-scrubber').addEventListener('input', (e) => {
+        state.simMinutes = Number(e.target.value);
+        renderAllFrames(true);
+      });
+
+      // Selector de mapa base (superior y pestaña Ajustes)
+      document.getElementById('basemap-select-top').addEventListener('change', (e) => {
+        setLeafletBasemap(e.target.value);
+      });
+      document.querySelectorAll('.basemap-opt-btn').forEach((btn) => {
+        btn.addEventListener('click', () => setLeafletBasemap(btn.dataset.basemapBtn));
+      });
+
+      // Zoom Nodo y Centrar
+      document.getElementById('btn-zoom-bridge').addEventListener('click', () => {
+        if (leafletMap) leafletMap.flyTo([-34.52505, -58.48795], 16, { duration: 0.6 });
+      });
+      document.getElementById('btn-zoom-full').addEventListener('click', () => {
+        if (!leafletMap) return;
+        const b = L.latLngBounds([...MITRE_STATIONS.map((s) => [s.lat, s.lon]), ...COSTA_STATIONS.map((s) => [s.lat, s.lon])]);
+        leafletMap.flyToBounds(b, { padding: [32, 32], duration: 0.6 });
+      });
+
+      // Régimen horario
+      const regimeNames = { weekday: 'Lun a Vie', saturday: 'Sábados', sunday: 'Dom y Fer' };
+      document.querySelectorAll('.regime-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          state.regime = btn.dataset.regime;
+          document.getElementById('header-regime-pill').textContent = regimeNames[state.regime];
+          document.querySelectorAll('.regime-btn').forEach((b) => {
+            const act = b.dataset.regime === state.regime;
+            b.className = act
+              ? 'regime-btn min-h-[44px] px-2 rounded-xl text-xs font-extrabold bg-sky-500/20 text-sky-300 border border-sky-500/50 cursor-pointer'
+              : 'regime-btn min-h-[44px] px-2 rounded-xl text-xs font-bold bg-slate-950 text-slate-400 border border-slate-800 cursor-pointer';
+          });
+          recomputeData();
+          renderAllFrames(true);
+        });
+      });
+
+      // Slider margen de caminata (inicia en 5 min)
+      document.getElementById('walk-margin-slider').addEventListener('input', (e) => {
+        state.walkMargin = Number(e.target.value);
+        document.getElementById('walk-margin-badge').textContent = `${state.walkMargin} min`;
+        document.getElementById('header-walk-pill').textContent = `${state.walkMargin} min`;
+        document.getElementById('overlay-walk-min').textContent = `${state.walkMargin} min`;
+        recomputeData();
+        renderAllFrames(true);
+      });
+
+      // Reiniciar día
+      document.getElementById('btn-reset-day').addEventListener('click', () => {
+        state.simMinutes = 285;
+        renderAllFrames(true);
+      });
+
+      // Interacción táctil y clic en gráficos (Móvil + Escritorio)
+      function bindChartTouchAndClick(dir, canvasId, tooltipId) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return;
+        const tooltip = tooltipId ? document.getElementById(tooltipId) : null;
+
+        function handleSelectAtX(clientX, jump) {
+          const rect = canvas.getBoundingClientRect();
+          const mx = clientX - rect.left;
+          const bars = state.chartBarsMeta[dir] || [];
+          const bar = bars.find((b) => mx >= b.x && mx <= b.x + b.w);
+          if (!bar) return null;
+          const ev = bar.event;
+          const meta = STATUS_META[ev.status] || STATUS_META.INVALID;
+
+          const mobInfo = document.getElementById('mob-chart-selected-info');
+          if (mobInfo) {
+            mobInfo.innerHTML = `
+              <div class="flex items-center justify-between font-bold text-white">
+                <span>${dir === 'SUR' ? 'Sur (TC→Mitre)' : 'Norte (Mitre→TC)'} · ${formatHHMM(ev.nodeTime)} (${ev.inTrain})</span>
+                <span style="color:${meta.color};">${meta.short}</span>
+              </div>
+              <div class="font-mono text-[10.5px] text-slate-300 mt-0.5">
+                Enlace: ${ev.outTrain} ${ev.outTime !== null ? formatHHMM(ev.outTime) : ''} · Bruta: <strong>${ev.outTime !== null ? ev.grossDiff + 'm' : '--'}</strong> · Ef.: <strong>${ev.effectiveWait !== null ? ev.effectiveWait + 'm' : '>20m'}</strong>
+              </div>
+            `;
+          }
+          if (jump) {
+            state.simMinutes = ev.nodeTime;
+            renderAllFrames(true);
+          }
+          return { ev, meta, mx, rect };
+        }
+
+        canvas.addEventListener('click', (e) => handleSelectAtX(e.clientX, true));
+        canvas.addEventListener('touchstart', (e) => {
+          if (e.touches && e.touches[0]) handleSelectAtX(e.touches[0].clientX, true);
+        }, { passive: true });
+
+        if (tooltip) {
+          canvas.addEventListener('mousemove', (e) => {
+            const res = handleSelectAtX(e.clientX, false);
+            if (res) {
+              tooltip.innerHTML = `
+                <div class="font-bold text-white">${formatHHMM(res.ev.nodeTime)} · ${res.ev.inTrain} <span style="color:${res.meta.color};">(${res.meta.short})</span></div>
+                <div class="font-mono text-[10.5px] text-slate-300">Bruta: ${res.ev.outTime !== null ? res.ev.grossDiff + 'm' : '--'} · Ef.: ${res.ev.effectiveWait !== null ? res.ev.effectiveWait + 'm' : '>20m'}</div>
+              `;
+              tooltip.style.left = `${Math.min(res.rect.width - 210, Math.max(8, res.mx - 80))}px`;
+              tooltip.style.top = '6px';
+              tooltip.classList.remove('hidden');
+            } else {
+              tooltip.classList.add('hidden');
+            }
+          });
+          canvas.addEventListener('mouseleave', () => tooltip.classList.add('hidden'));
+        }
+      }
+
+      bindChartTouchAndClick('SUR', 'mob-wait-chart-sur', null);
+      bindChartTouchAndClick('NORTE', 'mob-wait-chart-norte', null);
+      bindChartTouchAndClick('SUR', 'desk-wait-chart-sur', 'desk-tooltip-sur');
+      bindChartTouchAndClick('NORTE', 'desk-wait-chart-norte', 'desk-tooltip-norte');
+
+      // Filtros de Tabla Acumulada
+      document.querySelectorAll('.tbl-dir-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          state.tableDir = btn.dataset.tableDir;
+          document.querySelectorAll('.tbl-dir-btn').forEach((b) => {
+            b.className = b.dataset.tableDir === state.tableDir
+              ? 'tbl-dir-btn min-h-[36px] px-2.5 rounded-lg font-bold bg-slate-800 text-white cursor-pointer'
+              : 'tbl-dir-btn min-h-[36px] px-2.5 rounded-lg font-semibold text-slate-400 cursor-pointer';
+          });
+          renderAccumulatedTable(true);
+        });
+      });
+
+      document.getElementById('table-status-filter').addEventListener('change', (e) => {
+        state.tableStatus = e.target.value;
+        renderAccumulatedTable(true);
+      });
+
+      document.querySelectorAll('.tbl-mode-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          state.tableMode = btn.dataset.tableMode;
+          document.querySelectorAll('.tbl-mode-btn').forEach((b) => {
+            b.className = b.dataset.tableMode === state.tableMode
+              ? 'tbl-mode-btn min-h-[36px] px-2.5 rounded-lg font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 cursor-pointer'
+              : 'tbl-mode-btn min-h-[36px] px-2.5 rounded-lg font-semibold text-slate-400 cursor-pointer';
+          });
+          renderAccumulatedTable(true);
+        });
+      });
+
+      window.addEventListener('resize', () => {
+        if (leafletMap) leafletMap.invalidateSize();
+        drawAllVisibleCharts();
+      });
+
+      renderAllFrames(true);
+      lastTs = performance.now();
+      requestAnimationFrame(animationLoop);
+    });
+  </script>
+</body>
+</html>
